@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMAT - Student</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0f0f23;--surface:rgba(255,255,255,.04);--surface-hover:rgba(255,255,255,.08);
+      --border:rgba(255,255,255,.08);--primary:#6366f1;--primary-light:#818cf8;
+      --primary-glow:rgba(99,102,241,.3);--success:#10b981;--error:#ef4444;
+      --warn:#f59e0b;--text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;
+    }
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .hidden{display:none!important}
+
+    .screen{
+      min-height:100vh;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;padding:2rem;
+      animation:fadeIn .35s ease;
+    }
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── Auth ── */
+    .auth-card{
+      width:100%;max-width:400px;background:var(--surface);
+      border:1px solid var(--border);border-radius:1.5rem;
+      padding:2.5rem;backdrop-filter:blur(12px);
+    }
+    .auth-brand{text-align:center;margin-bottom:1.75rem}
+    .auth-brand span{font-size:.75rem;font-weight:600;letter-spacing:.25em;color:var(--success);text-transform:uppercase}
+    .auth-brand h2{font-size:1.5rem;font-weight:800;margin-top:.25rem}
+    .auth-tabs{display:flex;background:rgba(255,255,255,.04);border-radius:.75rem;padding:.25rem;margin-bottom:1.75rem}
+    .auth-tab{
+      flex:1;padding:.6rem;text-align:center;border-radius:.5rem;cursor:pointer;
+      font-weight:600;font-size:.875rem;color:var(--text-muted);transition:all .2s;border:none;background:none;
+    }
+    .auth-tab.active{background:var(--success);color:#fff}
+    .form-group{margin-bottom:1.25rem}
+    .form-label{display:block;font-size:.8125rem;font-weight:500;color:var(--text-muted);margin-bottom:.5rem}
+    .form-input{
+      width:100%;padding:.75rem 1rem;border-radius:.75rem;border:1px solid var(--border);
+      background:rgba(255,255,255,.04);color:var(--text);font-family:inherit;
+      font-size:.9375rem;outline:none;transition:border-color .2s;
+    }
+    .form-input:focus{border-color:var(--success)}
+    .form-input::placeholder{color:var(--text-dim)}
+    .btn{
+      width:100%;padding:.8125rem;border-radius:.75rem;border:none;
+      font-family:inherit;font-size:.9375rem;font-weight:600;cursor:pointer;transition:all .2s;
+    }
+    .btn-primary{background:var(--success);color:#fff}
+    .btn-primary:hover{background:#34d399;transform:translateY(-1px)}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .btn-ghost{background:none;color:var(--text-muted);border:1px solid var(--border)}
+    .btn-ghost:hover{background:var(--surface-hover)}
+    .error-msg{color:var(--error);font-size:.8125rem;margin-top:.75rem;text-align:center}
+
+    /* ── Header ── */
+    .header{
+      width:100%;display:flex;justify-content:space-between;align-items:center;
+      padding:.875rem 1.5rem;position:fixed;top:0;z-index:100;
+      background:rgba(15,15,35,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);
+    }
+    .header-brand{font-weight:700;color:var(--success);font-size:.8125rem;letter-spacing:.1em}
+    .header-right{display:flex;align-items:center;gap:.75rem}
+    .header-email{color:var(--text-muted);font-size:.75rem}
+    .btn-logout{
+      padding:.35rem .75rem;border-radius:.5rem;border:1px solid var(--border);background:none;
+      color:var(--text-muted);font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;
+    }
+    .btn-logout:hover{border-color:var(--error);color:var(--error)}
+
+    /* ── Dashboard ── */
+    .dashboard{padding-top:4.5rem;padding-bottom:2rem;width:100%;max-width:480px;margin:0 auto}
+    .dash-title{font-size:1.5rem;font-weight:800;margin-bottom:.25rem}
+    .dash-sub{color:var(--text-muted);margin-bottom:2rem;font-size:.9375rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem}
+    .card-header{font-weight:700;margin-bottom:1rem;font-size:1rem}
+
+    /* Code input */
+    .code-input-wrap{text-align:center;margin-bottom:1.5rem}
+    .code-input{
+      width:100%;max-width:320px;padding:1rem;border-radius:.75rem;
+      border:2px solid var(--border);background:rgba(255,255,255,.04);
+      color:var(--text);font-family:'Courier New',monospace;
+      font-size:1.75rem;font-weight:800;letter-spacing:.4em;text-align:center;
+      text-transform:uppercase;outline:none;transition:border-color .2s;
+    }
+    .code-input:focus{border-color:var(--success)}
+    .code-input::placeholder{color:var(--text-dim);letter-spacing:.15em;font-size:1rem;font-weight:400}
+
+    .or-divider{
+      display:flex;align-items:center;gap:1rem;margin:1.25rem 0;color:var(--text-dim);font-size:.75rem;
+    }
+    .or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+    .btn-scan{
+      width:100%;padding:.75rem;border-radius:.75rem;border:1px solid var(--border);
+      background:none;color:var(--text-muted);font-family:inherit;font-size:.875rem;
+      font-weight:600;cursor:pointer;transition:all .2s;
+    }
+    .btn-scan:hover{background:var(--surface-hover);color:var(--text)}
+
+    #qr-reader{
+      width:100%;max-width:320px;margin:1rem auto;border-radius:.75rem;overflow:hidden;
+      border:1px solid var(--border);
+    }
+
+    /* ── Result ── */
+    .result-screen{
+      min-height:100vh;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;padding:2rem;text-align:center;
+    }
+    .result-icon{
+      width:100px;height:100px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:2.5rem;margin-bottom:1.5rem;
+    }
+    .result-icon.success{background:rgba(16,185,129,.15);animation:pop .5s ease}
+    .result-icon.fail{background:rgba(239,68,68,.15);animation:pop .5s ease}
+    @keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+    .result-title{font-size:1.5rem;font-weight:800;margin-bottom:.5rem}
+    .result-sub{color:var(--text-muted);margin-bottom:2rem;font-size:.9375rem}
+    .btn-back{
+      padding:.65rem 1.75rem;border-radius:.75rem;border:1px solid var(--border);
+      background:rgba(255,255,255,.04);color:var(--text-muted);
+      font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;transition:all .2s;
+    }
+    .btn-back:hover{background:var(--surface-hover);color:var(--text)}
+
+    /* ── History ── */
+    .history-item{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:.875rem 1rem;border-radius:.75rem;
+      background:rgba(255,255,255,.02);border:1px solid var(--border);
+      margin-bottom:.5rem;font-size:.8125rem;
+    }
+    .hi-session{font-weight:600;color:var(--text);font-family:'Courier New',monospace;letter-spacing:.05em}
+    .hi-time{color:var(--text-muted)}
+    .empty{text-align:center;color:var(--text-dim);padding:2rem;font-size:.875rem}
+
+    /* Signal received animation */
+    .signal-received{
+      position:relative;width:120px;height:120px;margin:0 auto 1.5rem;
+    }
+    .sr-ring{
+      position:absolute;top:50%;left:50%;
+      border:2px solid var(--success);border-radius:50%;
+      animation:sr-pulse 2s ease-out infinite;
+    }
+    .sr-ring:nth-child(1){animation-delay:0s}
+    .sr-ring:nth-child(2){animation-delay:.5s}
+    .sr-ring:nth-child(3){animation-delay:1s}
+    @keyframes sr-pulse{
+      0%{width:40px;height:40px;margin-left:-20px;margin-top:-20px;opacity:.8}
+      100%{width:120px;height:120px;margin-left:-60px;margin-top:-60px;opacity:0}
+    }
+    .sr-center{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:48px;height:48px;border-radius:50%;
+      background:var(--success);display:flex;align-items:center;justify-content:center;
+      font-size:1.25rem;z-index:5;box-shadow:0 0 30px rgba(16,185,129,.3);
+    }
+
+    /* ── Loading ── */
+    .loader{
+      width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--success);
+      border-radius:50%;animation:spin .8s linear infinite;margin:2rem auto;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Listen mode ── */
+    .listen-card{border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.04)}
+    .btn-listen{
+      width:100%;padding:1rem;border-radius:.75rem;border:2px solid rgba(139,92,246,.3);
+      background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(99,102,241,.12));
+      color:#c4b5fd;font-family:inherit;font-size:1.125rem;font-weight:700;
+      cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:.75rem;
+    }
+    .btn-listen:hover{background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(99,102,241,.2));transform:translateY(-1px)}
+    .btn-listen.active{
+      border-color:var(--success);background:rgba(16,185,129,.08);color:var(--success);
+      animation:listen-glow 2s ease-in-out infinite;
+    }
+    @keyframes listen-glow{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}50%{box-shadow:0 0 20px rgba(16,185,129,.15)}}
+    .listen-viz{margin-top:1rem;text-align:center}
+    .freq-canvas{width:100%;height:60px;border-radius:.5rem;background:rgba(0,0,0,.3)}
+    .listen-status{
+      margin-top:.75rem;font-size:.8125rem;font-weight:600;color:var(--text-muted);
+      display:flex;align-items:center;justify-content:center;gap:.5rem;
+    }
+    .listen-status .dot{
+      width:8px;height:8px;border-radius:50%;background:var(--text-dim);
+      animation:blink 1.5s ease-in-out infinite;
+    }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .listen-status.detected{color:var(--success)}
+    .listen-status.detected .dot{background:var(--success)}
+    .signal-meter{
+      display:flex;align-items:flex-end;gap:2px;justify-content:center;
+      height:20px;margin-top:.5rem;
+    }
+    .signal-meter span{
+      width:4px;border-radius:2px;background:var(--border);transition:height .15s,background .15s;
+    }
+    .detected-code{
+      margin-top:.75rem;padding:.5rem 1rem;border-radius:.5rem;
+      background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);
+      font-family:'Courier New',monospace;font-size:1.25rem;font-weight:800;
+      letter-spacing:.2em;color:var(--success);
+    }
+    .listen-hint{font-size:.75rem;color:var(--text-dim);margin-top:.5rem}
+
+    /* ── Toast ── */
+    .toast{
+      position:fixed;bottom:2rem;left:50%;
+      transform:translateX(-50%) translateY(100px);
+      padding:.75rem 1.5rem;border-radius:.75rem;font-size:.875rem;font-weight:500;
+      z-index:1000;transition:transform .3s ease;white-space:nowrap;
+    }
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    .toast.success{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:var(--success)}
+    .toast.error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--error)}
+
+    @media(max-width:480px){
+      .auth-card{padding:1.75rem 1.25rem}
+      .dashboard{padding-left:1rem;padding-right:1rem}
+      .code-input{font-size:1.5rem;letter-spacing:.3em}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════ AUTH SCREEN ════════════ -->
+<section id="auth-screen" class="screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span>&#128241; SMAT Student</span>
+      <h2>Welcome Back</h2>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Sign In</button>
+      <button class="auth-tab" data-tab="register">Register</button>
+    </div>
+    <form id="auth-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="email" placeholder="student@school.edu" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="auth-btn">Sign In</button>
+      <div id="auth-error" class="error-msg hidden"></div>
+    </form>
+    <div style="text-align:center;margin-top:1.25rem">
+      <a href="/teacher.html" style="color:var(--text-dim);font-size:.8125rem;text-decoration:none">I'm a teacher &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ DASHBOARD ════════════ -->
+<section id="dash-screen" class="screen hidden">
+  <div class="header">
+    <div class="header-brand">SMAT STUDENT</div>
+    <div class="header-right">
+      <span class="header-email" id="user-email"></span>
+      <button class="btn-logout" id="logout-btn">Logout</button>
+    </div>
+  </div>
+  <div class="dashboard">
+    <div class="dash-title">Mark Attendance</div>
+    <div class="dash-sub">Enter the signal code from your teacher</div>
+
+    <div class="card listen-card">
+      <div class="card-header">&#127925; Auto-Detect Ultrasonic Signal</div>
+      <p style="font-size:.8125rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
+        Your teacher is broadcasting an ultrasonic chirp. Tap below to listen &mdash; attendance will be marked automatically.
+      </p>
+      <button class="btn-listen" id="listen-btn">&#127908; Start Listening</button>
+      <div class="listen-viz hidden" id="listen-viz">
+        <canvas class="freq-canvas" id="freq-canvas" height="60"></canvas>
+        <div class="signal-meter" id="signal-meter">
+          <span style="height:4px"></span><span style="height:6px"></span><span style="height:8px"></span>
+          <span style="height:10px"></span><span style="height:12px"></span>
+        </div>
+        <div class="listen-status" id="listen-status"><span class="dot"></span> Listening for chirp...</div>
+        <div class="detected-code hidden" id="detected-code"></div>
+        <div class="listen-hint">Keep your device near the teacher's speaker</div>
+        <div id="listen-log" style="margin-top:.75rem;padding:.5rem;border-radius:.5rem;background:rgba(0,0,0,.4);font-family:monospace;font-size:.65rem;color:var(--text-dim);max-height:100px;overflow-y:auto;white-space:pre-wrap"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">&#9997; Enter Code Manually</div>
+      <form id="code-form">
+        <div class="code-input-wrap">
+          <input class="code-input" type="text" id="code-input" maxlength="6"
+                 placeholder="CODE" autocomplete="off" spellcheck="false" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="mark-btn">Mark Attendance</button>
+      </form>
+
+      <div class="or-divider">or</div>
+      <button class="btn-scan" id="scan-btn">&#128247; Scan QR Code</button>
+      <div id="qr-reader" class="hidden"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">&#128203; My Attendance History</div>
+      <div id="history-list"><div class="empty">No records yet</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ LOADING SCREEN ════════════ -->
+<section id="loading-screen" class="screen hidden">
+  <div class="signal-received">
+    <div class="sr-ring"></div><div class="sr-ring"></div><div class="sr-ring"></div>
+    <div class="sr-center">&#128225;</div>
+  </div>
+  <div style="color:var(--text-muted);font-size:.9375rem">Receiving signal &amp; marking attendance...</div>
+  <div class="loader"></div>
+</section>
+
+<!-- ════════════ RESULT SCREEN ════════════ -->
+<section id="result-screen" class="screen hidden">
+  <div class="result-icon" id="result-icon"></div>
+  <div class="result-title" id="result-title"></div>
+  <div class="result-sub" id="result-sub"></div>
+  <button class="btn-back" id="result-back">&larr; Back to Dashboard</button>
+</section>
+
+<!-- ════════════ TOAST ════════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let accessToken = localStorage.getItem('s_access') || '';
+let refreshToken = localStorage.getItem('s_refresh') || '';
+let userEmail = localStorage.getItem('s_email') || '';
+let qrScanner = null;
+
+/* ── Helpers ── */
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+  const res = await fetch(API + path, { ...opts, headers });
+  if (res.status === 401 && refreshToken) {
+    const r = await fetch(API + '/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      accessToken = d.accessToken;
+      localStorage.setItem('s_access', accessToken);
+      headers['Authorization'] = `Bearer ${accessToken}`;
+      return fetch(API + path, { ...opts, headers });
+    } else { logout(); throw new Error('Session expired'); }
+  }
+  return res;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ── Screens ── */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+/* ── Auth ── */
+let authMode = 'login';
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    authMode = tab.dataset.tab;
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('auth-btn').textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+    document.getElementById('auth-error').classList.add('hidden');
+  });
+});
+
+document.getElementById('auth-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('auth-btn');
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Please wait...';
+  try {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+    const body = authMode === 'login'
+      ? { email, password }
+      : { email, password, role: 'student' };
+    const res = await fetch(API + endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Auth failed');
+    if (data.user && data.user.role !== 'student') throw new Error('This portal is for students only');
+    accessToken = data.accessToken;
+    refreshToken = data.refreshToken;
+    userEmail = data.user.email;
+    localStorage.setItem('s_access', accessToken);
+    localStorage.setItem('s_refresh', refreshToken);
+    localStorage.setItem('s_email', userEmail);
+    enterDashboard();
+  } catch (err) {
+    errEl.textContent = err.message; errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+  }
+});
+
+/* ── Dashboard ── */
+function enterDashboard() {
+  document.getElementById('user-email').textContent = userEmail;
+  document.getElementById('code-input').value = '';
+  show('dash-screen');
+  loadHistory();
+
+  const params = new URLSearchParams(window.location.search);
+  const codeFromUrl = params.get('code');
+  if (codeFromUrl) {
+    document.getElementById('code-input').value = codeFromUrl;
+    window.history.replaceState({}, '', '/student.html');
+    submitCode(codeFromUrl);
+  }
+}
+
+document.getElementById('logout-btn').addEventListener('click', logout);
+function logout() {
+  if (isListening) { receiver.stop(); isListening = false; }
+  accessToken = ''; refreshToken = ''; userEmail = '';
+  localStorage.removeItem('s_access'); localStorage.removeItem('s_refresh'); localStorage.removeItem('s_email');
+  show('auth-screen');
+}
+
+/* ── Mark Attendance ── */
+document.getElementById('code-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (code.length < 4) { toast('Enter a valid code', 'error'); return; }
+  submitCode(code);
+});
+
+async function submitCode(code) {
+  show('loading-screen');
+  try {
+    const lookupRes = await api(`/sessions/code/${encodeURIComponent(code)}`);
+    const lookupData = await lookupRes.json();
+    if (!lookupRes.ok) throw new Error(lookupData.message || 'Invalid code');
+
+    const markRes = await api('/attendance/mark', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: lookupData.sessionId }),
+    });
+    const markData = await markRes.json();
+    if (!markRes.ok) throw new Error(markData.message || 'Failed to mark');
+
+    showResult('success', 'Attendance Marked!', `You're checked in for ${lookupData.classId}`);
+  } catch (err) {
+    const msg = err.message;
+    if (msg.includes('Already marked') || msg.includes('409')) {
+      showResult('success', 'Already Marked', "You've already marked attendance for this session.");
+    } else {
+      showResult('fail', 'Failed', msg);
+    }
+  }
+}
+
+function showResult(type, title, sub) {
+  document.getElementById('result-icon').className = `result-icon ${type}`;
+  document.getElementById('result-icon').innerHTML = type === 'success' ? '&#10003;' : '&#10007;';
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-title').style.color = type === 'success' ? 'var(--success)' : 'var(--error)';
+  document.getElementById('result-sub').textContent = sub;
+  show('result-screen');
+}
+
+document.getElementById('result-back').addEventListener('click', () => enterDashboard());
+
+/* ── Audio Chirp Receiver ── */
+const receiver = {
+  CHARS: "ABCDEFGHJKMNPQRSTUVWXYZ23456789",
+  SYNC: 12000,
+  BASE: 12300,
+  STEP: 80,
+  FFT: 8192,
+  THRESH: 20,
+  ctx: null, analyser: null, stream: null, listening: false,
+  onDecode: null,
+
+  async start(onDecode) {
+    this.onDecode = onDecode;
+    this.confirmed = false;
+    this.decoded = [];
+    this.toneBuffer = [];
+    this.inTone = false;
+    this.toneFrames = 0;
+    this.freqAccum = [];
+    this.silenceFrames = 0;
+    this.logLines = [];
+
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await this.ctx.resume();
+    const rate = this.ctx.sampleRate;
+    this._log('AudioContext ready. sampleRate=' + rate);
+
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = this.FFT;
+    this.analyser.smoothingTimeConstant = 0.2;
+    this.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    this.ctx.createMediaStreamSource(this.stream).connect(this.analyser);
+
+    this.binW = rate / this.FFT;
+    this.minBin = Math.floor(11000 / this.binW);
+    this.maxBin = Math.ceil(15500 / this.binW);
+    this._log('Bin width=' + this.binW.toFixed(2) + 'Hz, scanning bins ' + this.minBin + '-' + this.maxBin);
+    this._log('Sync=' + this.SYNC + 'Hz, Base=' + this.BASE + 'Hz, Step=' + this.STEP + 'Hz');
+    this.listening = true;
+    this._poll();
+  },
+
+  _poll() {
+    if (!this.listening) return;
+    const data = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteFrequencyData(data);
+
+    let peak = 0, peakBin = 0;
+    for (let i = this.minBin; i <= this.maxBin; i++) {
+      if (data[i] > peak) { peak = data[i]; peakBin = i; }
+    }
+    const freq = peakBin * this.binW;
+
+    this._drawViz(data, peak, freq);
+
+    if (peak > this.THRESH) {
+      if (!this.inTone) {
+        this.inTone = true;
+        this.toneFrames = 0;
+        this.freqAccum = [];
+      }
+      this.toneFrames++;
+      this.freqAccum.push(freq);
+      this.silenceFrames = 0;
+    } else {
+      if (this.inTone && this.toneFrames >= 2) {
+        this.freqAccum.sort((a, b) => a - b);
+        const medianFreq = this.freqAccum[Math.floor(this.freqAccum.length / 2)];
+        const tone = this._toTone(medianFreq);
+        const label = tone === -2 ? 'SYNC' : tone === -1 ? '?' : this.CHARS[tone];
+        this._log('Tone: ' + Math.round(medianFreq) + 'Hz → ' + label + ' (frames=' + this.toneFrames + ', amp=' + peak + ')');
+        this._recordTone(tone);
+      }
+      this.inTone = false;
+      this.toneFrames = 0;
+      this.silenceFrames++;
+      if (this.silenceFrames > 50 && this.toneBuffer.length > 0) {
+        this._tryDecode();
+        this.toneBuffer = [];
+      }
+    }
+    requestAnimationFrame(() => this._poll());
+  },
+
+  _toTone(freq) {
+    if (Math.abs(freq - this.SYNC) < 50) return -2;
+    const idx = Math.round((freq - this.BASE) / this.STEP);
+    if (idx >= 0 && idx < this.CHARS.length) {
+      if (Math.abs(freq - (this.BASE + idx * this.STEP)) < 35) return idx;
+    }
+    return -1;
+  },
+
+  _recordTone(tone) {
+    if (tone === -1) return;
+    if (tone === -2) {
+      this._tryDecode();
+      this.toneBuffer = [];
+    }
+    this.toneBuffer.push(tone);
+    const labels = this.toneBuffer.map(t => t === -2 ? 'S' : t >= 0 ? this.CHARS[t] : '?');
+    document.getElementById('listen-status').innerHTML =
+      '<span class="dot"></span> Buffer: [' + labels.join(', ') + ']';
+    if (this.toneBuffer.length > 15) this.toneBuffer = this.toneBuffer.slice(-15);
+  },
+
+  _tryDecode() {
+    if (this.confirmed) return;
+    const buf = this.toneBuffer;
+    for (let i = buf.length - 1; i >= 0; i--) {
+      if (buf[i] === -2) {
+        const data = buf.slice(i + 1);
+        if (data.length >= 6) {
+          const chars = data.slice(0, 6);
+          if (chars.every(t => t >= 0 && t < this.CHARS.length)) {
+            const code = chars.map(t => this.CHARS[t]).join('');
+            this.decoded.push(code);
+            this._log('DECODED: ' + code + ' (attempt #' + this.decoded.length + ')');
+
+            const codeEl = document.getElementById('detected-code');
+            const statusEl = document.getElementById('listen-status');
+            codeEl.textContent = code;
+            codeEl.classList.remove('hidden');
+
+            const count = this.decoded.filter(c => c === code).length;
+            if (count >= 2) {
+              this.confirmed = true;
+              statusEl.innerHTML = '<span class="dot"></span> Signal decoded!';
+              statusEl.className = 'listen-status detected';
+              this._log('CONFIRMED: ' + code);
+              if (this.onDecode) this.onDecode(code);
+            } else {
+              statusEl.innerHTML = '<span class="dot"></span> Verifying (' + count + '/2)...';
+            }
+            return;
+          }
+        }
+        break;
+      }
+    }
+  },
+
+  _drawViz(data, peak, freq) {
+    const canvas = document.getElementById('freq-canvas');
+    if (!canvas) return;
+    const c = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width = canvas.clientWidth * dpr;
+    const h = canvas.height = 70 * dpr;
+    c.clearRect(0, 0, w, h);
+
+    const range = this.maxBin - this.minBin;
+    const barW = Math.max(1, w / range);
+    for (let i = 0; i < range; i++) {
+      const val = data[this.minBin + i] / 255;
+      const barH = val * h * 0.8;
+      c.fillStyle = val > this.THRESH / 255
+        ? `rgba(16,185,129,${0.3 + val * 0.7})`
+        : `rgba(148,163,184,${0.1 + val * 0.2})`;
+      c.fillRect(i * barW, h - barH, barW - 1, barH);
+    }
+
+    c.fillStyle = 'rgba(255,255,255,0.85)';
+    c.font = `bold ${11 * dpr}px monospace`;
+    const txt = `Peak: ${Math.round(freq)}Hz  Amp: ${peak}  ${peak > this.THRESH ? 'SIGNAL' : 'quiet'}`;
+    c.fillText(txt, 4 * dpr, 13 * dpr);
+
+    const meter = document.getElementById('signal-meter');
+    if (meter) {
+      const bars = meter.children;
+      const norm = Math.min(peak / 100, 1);
+      for (let i = 0; i < bars.length; i++) {
+        const t = (i + 1) / bars.length;
+        bars[i].style.height = (4 + i * 4) + 'px';
+        bars[i].style.background = norm >= t
+          ? (norm > 0.4 ? 'var(--success)' : 'var(--primary)')
+          : 'var(--border)';
+      }
+    }
+  },
+
+  _log(msg) {
+    const el = document.getElementById('listen-log');
+    if (!el) return;
+    this.logLines = this.logLines || [];
+    this.logLines.push(new Date().toLocaleTimeString() + ' ' + msg);
+    if (this.logLines.length > 20) this.logLines = this.logLines.slice(-20);
+    el.textContent = this.logLines.join('\n');
+    el.scrollTop = el.scrollHeight;
+  },
+
+  stop() {
+    this.listening = false;
+    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+    if (this.ctx) { this.ctx.close(); this.ctx = null; }
+  }
+};
+
+let isListening = false;
+document.getElementById('listen-btn').addEventListener('click', async () => {
+  if (isListening) {
+    receiver.stop();
+    isListening = false;
+    document.getElementById('listen-btn').innerHTML = '&#127908; Start Listening';
+    document.getElementById('listen-btn').classList.remove('active');
+    document.getElementById('listen-viz').classList.add('hidden');
+    return;
+  }
+  try {
+    await receiver.start((code) => {
+      receiver.stop();
+      isListening = false;
+      document.getElementById('listen-btn').innerHTML = '&#127908; Start Listening';
+      document.getElementById('listen-btn').classList.remove('active');
+      toast('Signal decoded: ' + code);
+      submitCode(code);
+    });
+    isListening = true;
+    document.getElementById('listen-btn').innerHTML = '&#9209; Stop Listening';
+    document.getElementById('listen-btn').classList.add('active');
+    document.getElementById('listen-viz').classList.remove('hidden');
+    document.getElementById('detected-code').classList.add('hidden');
+    document.getElementById('listen-status').innerHTML = '<span class="dot"></span> Listening for chirp...';
+    document.getElementById('listen-status').className = 'listen-status';
+  } catch (e) {
+    toast('Microphone access denied', 'error');
+  }
+});
+
+/* ── QR Scanning ── */
+let scannerLoaded = false;
+document.getElementById('scan-btn').addEventListener('click', async () => {
+  const readerEl = document.getElementById('qr-reader');
+  if (!readerEl.classList.contains('hidden')) {
+    stopScanner();
+    return;
+  }
+  readerEl.classList.remove('hidden');
+  document.getElementById('scan-btn').textContent = '✕ Close Scanner';
+
+  if (!scannerLoaded) {
+    try {
+      await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
+      scannerLoaded = true;
+    } catch (_) {
+      toast('Could not load QR scanner', 'error');
+      stopScanner();
+      return;
+    }
+  }
+
+  try {
+    qrScanner = new Html5Qrcode('qr-reader');
+    await qrScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (text) => {
+        stopScanner();
+        let code = text;
+        try {
+          const url = new URL(text);
+          code = url.searchParams.get('code') || text;
+        } catch (_) {}
+        document.getElementById('code-input').value = code;
+        submitCode(code.toUpperCase());
+      }
+    );
+  } catch (err) {
+    toast('Camera access denied', 'error');
+    stopScanner();
+  }
+});
+
+function stopScanner() {
+  if (qrScanner) { qrScanner.stop().catch(() => {}); qrScanner = null; }
+  document.getElementById('qr-reader').classList.add('hidden');
+  document.getElementById('qr-reader').innerHTML = '';
+  document.getElementById('scan-btn').innerHTML = '&#128247; Scan QR Code';
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+/* ── History ── */
+async function loadHistory() {
+  try {
+    const res = await api('/attendance/me?limit=20');
+    const rows = await res.json();
+    const el = document.getElementById('history-list');
+    if (!rows.length) { el.innerHTML = '<div class="empty">No attendance records yet</div>'; return; }
+    el.innerHTML = rows.map(r => `
+      <div class="history-item">
+        <span class="hi-session">${r.session_id.slice(0, 8)}</span>
+        <span class="hi-time">${new Date(r.timestamp).toLocaleString()}</span>
+      </div>`).join('');
+  } catch (_) {}
+}
+
+/* ── Init ── */
+if (accessToken && userEmail) { enterDashboard(); }
+</script>
+</body>
+</html>

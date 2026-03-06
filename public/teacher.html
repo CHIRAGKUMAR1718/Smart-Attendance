@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMAT - Teacher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0f0f23;--surface:rgba(255,255,255,.04);--surface-hover:rgba(255,255,255,.08);
+      --border:rgba(255,255,255,.08);--primary:#6366f1;--primary-light:#818cf8;
+      --primary-glow:rgba(99,102,241,.3);--success:#10b981;--error:#ef4444;
+      --warn:#f59e0b;--text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;
+    }
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .hidden{display:none!important}
+
+    /* ── Screens ── */
+    .screen{
+      min-height:100vh;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;padding:2rem;
+      animation:fadeIn .35s ease;
+    }
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── Auth ── */
+    .auth-card{
+      width:100%;max-width:400px;background:var(--surface);
+      border:1px solid var(--border);border-radius:1.5rem;
+      padding:2.5rem;backdrop-filter:blur(12px);
+    }
+    .auth-brand{text-align:center;margin-bottom:1.75rem}
+    .auth-brand span{font-size:.75rem;font-weight:600;letter-spacing:.25em;color:var(--primary);text-transform:uppercase}
+    .auth-brand h2{font-size:1.5rem;font-weight:800;margin-top:.25rem}
+    .auth-tabs{display:flex;background:rgba(255,255,255,.04);border-radius:.75rem;padding:.25rem;margin-bottom:1.75rem}
+    .auth-tab{
+      flex:1;padding:.6rem;text-align:center;border-radius:.5rem;cursor:pointer;
+      font-weight:600;font-size:.875rem;color:var(--text-muted);transition:all .2s;border:none;background:none;
+    }
+    .auth-tab.active{background:var(--primary);color:#fff}
+    .form-group{margin-bottom:1.25rem}
+    .form-label{display:block;font-size:.8125rem;font-weight:500;color:var(--text-muted);margin-bottom:.5rem}
+    .form-input{
+      width:100%;padding:.75rem 1rem;border-radius:.75rem;border:1px solid var(--border);
+      background:rgba(255,255,255,.04);color:var(--text);font-family:inherit;
+      font-size:.9375rem;outline:none;transition:border-color .2s;
+    }
+    .form-input:focus{border-color:var(--primary)}
+    .form-input::placeholder{color:var(--text-dim)}
+    .btn{
+      width:100%;padding:.8125rem;border-radius:.75rem;border:none;
+      font-family:inherit;font-size:.9375rem;font-weight:600;cursor:pointer;transition:all .2s;
+    }
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px)}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .btn-ghost{background:none;color:var(--text-muted);border:1px solid var(--border)}
+    .btn-ghost:hover{background:var(--surface-hover)}
+    .error-msg{color:var(--error);font-size:.8125rem;margin-top:.75rem;text-align:center}
+
+    /* ── Header ── */
+    .header{
+      width:100%;display:flex;justify-content:space-between;align-items:center;
+      padding:.875rem 1.5rem;position:fixed;top:0;z-index:100;
+      background:rgba(15,15,35,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);
+    }
+    .header-brand{font-weight:700;color:var(--primary);font-size:.8125rem;letter-spacing:.1em}
+    .header-right{display:flex;align-items:center;gap:.75rem}
+    .header-email{color:var(--text-muted);font-size:.75rem}
+    .btn-logout{
+      padding:.35rem .75rem;border-radius:.5rem;border:1px solid var(--border);background:none;
+      color:var(--text-muted);font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;
+    }
+    .btn-logout:hover{border-color:var(--error);color:var(--error)}
+
+    /* ── Dashboard ── */
+    .dashboard{padding-top:4.5rem;padding-bottom:2rem;width:100%;max-width:560px;margin:0 auto}
+    .dash-title{font-size:1.5rem;font-weight:800;margin-bottom:.25rem}
+    .dash-sub{color:var(--text-muted);margin-bottom:2rem;font-size:.9375rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem}
+    .card-header{font-weight:700;margin-bottom:1rem;font-size:1rem}
+    .dur-options{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem}
+    .dur-btn{
+      padding:.5rem 1rem;border-radius:.5rem;border:1px solid var(--border);background:none;
+      color:var(--text-muted);font-family:inherit;font-size:.8125rem;cursor:pointer;transition:all .2s;
+    }
+    .dur-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+    .session-item{
+      display:flex;justify-content:space-between;align-items:center;padding:1rem;
+      border-radius:.75rem;background:rgba(255,255,255,.02);border:1px solid var(--border);
+      margin-bottom:.75rem;cursor:pointer;transition:all .2s;
+    }
+    .session-item:hover{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.2)}
+    .si-left{display:flex;flex-direction:column;gap:.25rem}
+    .si-class{font-weight:600;font-size:.9375rem}
+    .si-code{font-family:'Courier New',monospace;font-weight:700;color:var(--primary);letter-spacing:.1em;font-size:.8125rem}
+    .si-timer{color:var(--text-muted);font-size:.75rem}
+    .si-arrow{color:var(--text-dim);font-size:1.25rem}
+    .empty{text-align:center;color:var(--text-dim);padding:2rem;font-size:.875rem}
+
+    /* ── Attendance Records ── */
+    .search-row{display:flex;gap:.5rem;margin-bottom:1rem}
+    .search-row .form-input{flex:1}
+    .btn-search{
+      padding:.75rem 1.25rem;border-radius:.75rem;border:none;
+      background:var(--primary);color:#fff;font-family:inherit;
+      font-size:.875rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;
+    }
+    .btn-search:hover{background:var(--primary-light)}
+    .btn-search:disabled{opacity:.5;cursor:not-allowed}
+    .record-session{
+      border:1px solid var(--border);border-radius:.75rem;
+      margin-bottom:.75rem;overflow:hidden;background:rgba(255,255,255,.02);
+    }
+    .rs-header{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:.875rem 1rem;cursor:pointer;transition:background .2s;
+    }
+    .rs-header:hover{background:rgba(255,255,255,.04)}
+    .rs-left{display:flex;flex-direction:column;gap:.2rem}
+    .rs-date{font-size:.75rem;color:var(--text-dim)}
+    .rs-code{font-family:'Courier New',monospace;font-weight:700;color:var(--primary);letter-spacing:.08em;font-size:.8125rem}
+    .rs-count{
+      padding:.25rem .6rem;border-radius:.375rem;background:rgba(16,185,129,.1);
+      color:var(--success);font-size:.75rem;font-weight:600;
+    }
+    .rs-chevron{color:var(--text-dim);font-size:1rem;transition:transform .2s}
+    .rs-chevron.open{transform:rotate(90deg)}
+    .rs-body{
+      max-height:0;overflow:hidden;transition:max-height .3s ease;
+      border-top:0 solid var(--border);
+    }
+    .rs-body.open{max-height:600px;border-top-width:1px}
+    .rs-student{
+      display:flex;align-items:center;padding:.5rem 1rem;
+      border-bottom:1px solid rgba(255,255,255,.03);font-size:.8125rem;
+    }
+    .rs-student:last-child{border-bottom:none}
+    .rs-snum{
+      width:22px;height:22px;border-radius:50%;background:rgba(99,102,241,.1);
+      color:var(--primary);display:flex;align-items:center;justify-content:center;
+      font-size:.65rem;font-weight:700;flex-shrink:0;
+    }
+    .rs-semail{flex:1;margin-left:.625rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rs-stime{color:var(--text-dim);font-size:.75rem;margin-left:.5rem;flex-shrink:0}
+    .history-tabs{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+    .ht-btn{
+      padding:.375rem .75rem;border-radius:.5rem;border:1px solid var(--border);background:none;
+      color:var(--text-muted);font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;
+    }
+    .ht-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+    .records-summary{
+      display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;
+    }
+    .rs-stat{
+      flex:1;min-width:100px;padding:.75rem;border-radius:.75rem;
+      background:rgba(255,255,255,.03);border:1px solid var(--border);text-align:center;
+    }
+    .rs-stat-num{font-size:1.25rem;font-weight:800;color:var(--primary)}
+    .rs-stat-label{font-size:.7rem;color:var(--text-dim);margin-top:.125rem}
+
+    /* ── Signal Broadcasting ── */
+    .signal-screen{
+      min-height:100vh;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;padding:2rem;position:relative;overflow:hidden;
+    }
+    .signal-bg{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(99,102,241,.08) 0%,transparent 60%)}
+    .signal-content{position:relative;z-index:1;text-align:center;width:100%;max-width:420px}
+
+    .signal-status{
+      display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1.25rem;
+      border-radius:2rem;background:rgba(99,102,241,.12);color:var(--primary-light);
+      font-size:.8125rem;font-weight:600;margin-bottom:2rem;
+    }
+    .signal-dot{width:8px;height:8px;border-radius:50%;background:var(--primary-light);animation:blink 1.5s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+    .broadcaster{position:relative;width:260px;height:260px;margin:0 auto 1.5rem}
+    .ring{
+      position:absolute;top:50%;left:50%;
+      border:2px solid var(--primary);border-radius:50%;
+      animation:ring-expand 3s ease-out infinite;
+    }
+    .ring:nth-child(1){animation-delay:0s}
+    .ring:nth-child(2){animation-delay:.75s}
+    .ring:nth-child(3){animation-delay:1.5s}
+    .ring:nth-child(4){animation-delay:2.25s}
+    @keyframes ring-expand{
+      0%{width:60px;height:60px;margin-left:-30px;margin-top:-30px;opacity:.7}
+      100%{width:260px;height:260px;margin-left:-130px;margin-top:-130px;opacity:0}
+    }
+    .ring-center{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:80px;height:80px;border-radius:50%;
+      background:linear-gradient(135deg,var(--primary),#8b5cf6);
+      display:flex;align-items:center;justify-content:center;font-size:1.75rem;
+      box-shadow:0 0 40px var(--primary-glow);z-index:5;
+    }
+
+    .sig-code{
+      font-size:clamp(2rem,8vw,3.5rem);font-weight:900;letter-spacing:.25em;
+      color:#fff;text-shadow:0 0 30px var(--primary-glow);margin-bottom:.25rem;
+    }
+    .sig-class{color:var(--text-muted);font-size:.875rem;margin-bottom:1.5rem}
+
+    .sig-qr{background:#fff;padding:.75rem;border-radius:.75rem;display:inline-block;margin-bottom:1.5rem}
+    .sig-qr canvas{display:block}
+
+    .sig-timer{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:.5rem}
+    .sig-timer.warn{color:var(--warn)}
+    .sig-timer.critical{color:var(--error);animation:blink 1s ease-in-out infinite}
+
+    .sig-count{
+      display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.25rem;
+      border-radius:.75rem;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);
+      color:var(--success);font-weight:600;font-size:.9375rem;margin-bottom:1rem;
+    }
+    .student-list{
+      width:100%;max-width:380px;margin:0 auto 1.5rem;max-height:200px;overflow-y:auto;
+      border-radius:.75rem;background:var(--surface);border:1px solid var(--border);
+    }
+    .student-list:empty{display:none}
+    .student-list::-webkit-scrollbar{width:4px}
+    .student-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+    .sl-item{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:.625rem 1rem;border-bottom:1px solid var(--border);font-size:.8125rem;
+    }
+    .sl-item:last-child{border-bottom:none}
+    .sl-num{
+      width:24px;height:24px;border-radius:50%;background:rgba(16,185,129,.15);
+      color:var(--success);display:flex;align-items:center;justify-content:center;
+      font-size:.7rem;font-weight:700;flex-shrink:0;
+    }
+    .sl-email{flex:1;margin-left:.75rem;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sl-time{color:var(--text-dim);font-size:.75rem;margin-left:.5rem;flex-shrink:0}
+    .btn-back{
+      padding:.65rem 1.75rem;border-radius:.75rem;border:1px solid var(--border);
+      background:rgba(255,255,255,.04);color:var(--text-muted);
+      font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;transition:all .2s;
+    }
+    .btn-back:hover{background:var(--surface-hover);color:var(--text)}
+
+    /* ── Chirp indicator ── */
+    .chirp-bar{
+      display:flex;align-items:center;gap:.75rem;padding:.6rem 1.25rem;
+      border-radius:.75rem;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.2);
+      margin-bottom:1.25rem;
+    }
+    .chirp-wave{display:flex;align-items:center;gap:3px;height:24px}
+    .chirp-wave span{
+      display:block;width:3px;border-radius:2px;background:#a78bfa;
+      animation:wave 1.2s ease-in-out infinite;
+    }
+    .chirp-wave span:nth-child(1){height:8px;animation-delay:0s}
+    .chirp-wave span:nth-child(2){height:16px;animation-delay:.1s}
+    .chirp-wave span:nth-child(3){height:24px;animation-delay:.2s}
+    .chirp-wave span:nth-child(4){height:16px;animation-delay:.3s}
+    .chirp-wave span:nth-child(5){height:8px;animation-delay:.4s}
+    @keyframes wave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+    .chirp-label{font-size:.8125rem;font-weight:600;color:#a78bfa}
+    .chirp-toggle{
+      margin-left:auto;padding:.3rem .65rem;border-radius:.375rem;
+      border:1px solid rgba(139,92,246,.3);background:none;color:#a78bfa;
+      font-family:inherit;font-size:.7rem;font-weight:600;cursor:pointer;transition:all .2s;
+    }
+    .chirp-toggle:hover{background:rgba(139,92,246,.15)}
+    .chirp-toggle.muted{color:var(--text-dim);border-color:var(--border)}
+
+    /* ── Toast ── */
+    .toast{
+      position:fixed;bottom:2rem;left:50%;
+      transform:translateX(-50%) translateY(100px);
+      padding:.75rem 1.5rem;border-radius:.75rem;font-size:.875rem;font-weight:500;
+      z-index:1000;transition:transform .3s ease;white-space:nowrap;
+    }
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    .toast.success{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:var(--success)}
+    .toast.error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--error)}
+
+    @media(max-width:480px){
+      .auth-card{padding:1.75rem 1.25rem}
+      .dashboard{padding-left:1rem;padding-right:1rem}
+      .broadcaster{width:200px;height:200px}
+      @keyframes ring-expand{
+        0%{width:50px;height:50px;margin-left:-25px;margin-top:-25px;opacity:.7}
+        100%{width:200px;height:200px;margin-left:-100px;margin-top:-100px;opacity:0}
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════ AUTH SCREEN ════════════ -->
+<section id="auth-screen" class="screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span>&#9889; SMAT Teacher</span>
+      <h2>Welcome Back</h2>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Sign In</button>
+      <button class="auth-tab" data-tab="register">Register</button>
+    </div>
+    <form id="auth-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="email" placeholder="teacher@school.edu" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="auth-btn">Sign In</button>
+      <div id="auth-error" class="error-msg hidden"></div>
+    </form>
+    <div style="text-align:center;margin-top:1.25rem">
+      <a href="/student.html" style="color:var(--text-dim);font-size:.8125rem;text-decoration:none">I'm a student &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ DASHBOARD ════════════ -->
+<section id="dash-screen" class="screen hidden">
+  <div class="header">
+    <div class="header-brand">SMAT TEACHER</div>
+    <div class="header-right">
+      <span class="header-email" id="user-email"></span>
+      <button class="btn-logout" id="logout-btn">Logout</button>
+    </div>
+  </div>
+  <div class="dashboard">
+    <div class="dash-title">Dashboard</div>
+    <div class="dash-sub">Start broadcasting a signal for your class</div>
+
+    <div class="card">
+      <div class="card-header">&#128225; Start New Session</div>
+      <form id="session-form">
+        <div class="form-group">
+          <label class="form-label">Class / Subject ID</label>
+          <input class="form-input" type="text" id="class-id" placeholder="e.g. CS101-A" required>
+        </div>
+        <label class="form-label">Duration</label>
+        <div class="dur-options" id="dur-options">
+          <button type="button" class="dur-btn" data-dur="60">1 min</button>
+          <button type="button" class="dur-btn" data-dur="120">2 min</button>
+          <button type="button" class="dur-btn active" data-dur="300">5 min</button>
+          <button type="button" class="dur-btn" data-dur="600">10 min</button>
+          <button type="button" class="dur-btn" data-dur="900">15 min</button>
+          <button type="button" class="dur-btn" data-dur="1800">30 min</button>
+        </div>
+        <button type="submit" class="btn btn-primary" id="start-btn">Start Broadcasting</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Active Sessions</div>
+      <div id="sessions-list"><div class="empty">No active sessions</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">&#128203; Attendance Records</div>
+      <div class="search-row">
+        <input class="form-input" type="text" id="search-class" placeholder="Enter class code e.g. CS101-A">
+        <button class="btn-search" id="search-btn">Search</button>
+      </div>
+      <div id="class-tabs" class="history-tabs"></div>
+      <div id="records-summary" class="records-summary hidden"></div>
+      <div id="records-list"><div class="empty">Search a class code to view attendance</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ SIGNAL BROADCAST ════════════ -->
+<section id="signal-screen" class="signal-screen hidden">
+  <div class="signal-bg"></div>
+  <div class="signal-content">
+    <div class="signal-status"><span class="signal-dot"></span> Broadcasting</div>
+
+    <div class="broadcaster">
+      <div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div>
+      <div class="ring-center">&#128225;</div>
+    </div>
+
+    <div class="sig-code" id="sig-code"></div>
+    <div class="sig-class" id="sig-class"></div>
+
+    <div class="chirp-bar" id="chirp-bar">
+      <div class="chirp-wave"><span></span><span></span><span></span><span></span><span></span></div>
+      <span class="chirp-label" id="chirp-label">Chirp active</span>
+      <button class="chirp-toggle" id="chirp-test" style="margin-left:auto">Test Sound</button>
+      <button class="chirp-toggle" id="chirp-toggle">Mute</button>
+    </div>
+    <div id="chirp-debug" style="font-size:.7rem;color:var(--text-dim);margin-bottom:1rem;font-family:monospace;text-align:left"></div>
+
+    <div class="sig-qr"><canvas id="qr-canvas"></canvas></div>
+
+    <div class="sig-timer" id="sig-timer">--:--</div>
+    <div class="sig-count"><span>&#9989;</span> <span id="sig-count-num">0</span> student(s) marked</div>
+
+    <div class="student-list" id="student-list"></div>
+
+    <button class="btn-back" id="back-btn">&larr; Back to Dashboard</button>
+  </div>
+</section>
+
+<!-- ════════════ TOAST ════════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let accessToken = localStorage.getItem('t_access') || '';
+let refreshToken = localStorage.getItem('t_refresh') || '';
+let userEmail = localStorage.getItem('t_email') || '';
+let currentSession = null;
+let timerInterval = null;
+let pollInterval = null;
+let selectedDuration = 300;
+
+/* ── Helpers ── */
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+  const res = await fetch(API + path, { ...opts, headers });
+  if (res.status === 401 && refreshToken) {
+    const r = await fetch(API + '/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      accessToken = d.accessToken;
+      localStorage.setItem('t_access', accessToken);
+      headers['Authorization'] = `Bearer ${accessToken}`;
+      return fetch(API + path, { ...opts, headers });
+    } else { logout(); throw new Error('Session expired'); }
+  }
+  return res;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60); const sec = s % 60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+/* ── Screens ── */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+/* ── Auth ── */
+let authMode = 'login';
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    authMode = tab.dataset.tab;
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('auth-btn').textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+    document.getElementById('auth-error').classList.add('hidden');
+  });
+});
+
+document.getElementById('auth-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('auth-btn');
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Please wait...';
+  try {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+    const body = authMode === 'login'
+      ? { email, password }
+      : { email, password, role: 'teacher' };
+    const res = await fetch(API + endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Auth failed');
+    if (data.user && data.user.role !== 'teacher') throw new Error('This portal is for teachers only');
+    accessToken = data.accessToken;
+    refreshToken = data.refreshToken;
+    userEmail = data.user.email;
+    localStorage.setItem('t_access', accessToken);
+    localStorage.setItem('t_refresh', refreshToken);
+    localStorage.setItem('t_email', userEmail);
+    enterDashboard();
+  } catch (err) {
+    errEl.textContent = err.message; errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+  }
+});
+
+/* ── Dashboard ── */
+function enterDashboard() {
+  document.getElementById('user-email').textContent = userEmail;
+  show('dash-screen');
+  loadSessions();
+  loadClassTabs();
+}
+
+document.getElementById('logout-btn').addEventListener('click', logout);
+function logout() {
+  accessToken = ''; refreshToken = ''; userEmail = '';
+  localStorage.removeItem('t_access'); localStorage.removeItem('t_refresh'); localStorage.removeItem('t_email');
+  show('auth-screen');
+}
+
+/* Duration buttons */
+document.querySelectorAll('.dur-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedDuration = Number(btn.dataset.dur);
+  });
+});
+
+/* Start session */
+document.getElementById('session-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  chirp.warmUp();
+  const btn = document.getElementById('start-btn');
+  btn.disabled = true; btn.textContent = 'Starting...';
+  try {
+    const classId = document.getElementById('class-id').value.trim();
+    const res = await api('/sessions/start', {
+      method: 'POST',
+      body: JSON.stringify({ classId, duration: selectedDuration }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed');
+    openSignal({ sessionId: data.sessionId, code: data.code, classId, expiresIn: data.expiresIn });
+    toast('Session started — broadcasting!');
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Start Broadcasting'; }
+});
+
+/* Load active sessions */
+async function loadSessions() {
+  try {
+    const res = await api('/sessions/active');
+    const sessions = await res.json();
+    const el = document.getElementById('sessions-list');
+    if (!sessions.length) { el.innerHTML = '<div class="empty">No active sessions</div>'; return; }
+    el.innerHTML = sessions.map(s => `
+      <div class="session-item" data-id="${s.sessionId}" data-code="${s.code}" data-class="${s.classId}" data-ttl="${s.remainingSeconds}">
+        <div class="si-left">
+          <span class="si-class">${s.classId}</span>
+          <span class="si-code">${s.code}</span>
+          <span class="si-timer">${fmtTime(s.remainingSeconds)} remaining</span>
+        </div>
+        <span class="si-arrow">&#8250;</span>
+      </div>`).join('');
+    el.querySelectorAll('.session-item').forEach(item => {
+      item.addEventListener('click', () => {
+        openSignal({
+          sessionId: item.dataset.id, code: item.dataset.code,
+          classId: item.dataset.class, expiresIn: Number(item.dataset.ttl),
+        });
+      });
+    });
+  } catch (err) { console.error(err); }
+}
+
+/* ── Attendance Records ── */
+document.getElementById('search-btn').addEventListener('click', searchAttendance);
+document.getElementById('search-class').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchAttendance();
+});
+
+async function searchAttendance() {
+  const classId = document.getElementById('search-class').value.trim();
+  if (!classId) { toast('Enter a class code', 'error'); return; }
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true; btn.textContent = 'Searching...';
+  try {
+    const res = await api(`/attendance/class/${encodeURIComponent(classId)}`);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Not found'); }
+    const rows = await res.json();
+    renderRecords(classId, rows);
+  } catch (err) {
+    document.getElementById('records-list').innerHTML = `<div class="empty">${err.message}</div>`;
+    document.getElementById('records-summary').classList.add('hidden');
+  } finally { btn.disabled = false; btn.textContent = 'Search'; }
+}
+
+function renderRecords(classId, rows) {
+  const listEl = document.getElementById('records-list');
+  const summaryEl = document.getElementById('records-summary');
+
+  if (!rows.length) {
+    listEl.innerHTML = '<div class="empty">No attendance records for this class</div>';
+    summaryEl.classList.add('hidden');
+    return;
+  }
+
+  const sessions = {};
+  rows.forEach(r => {
+    if (!sessions[r.session_id]) {
+      sessions[r.session_id] = {
+        code: r.session_code,
+        date: r.session_date,
+        students: []
+      };
+    }
+    sessions[r.session_id].students.push(r);
+  });
+
+  const sessionList = Object.entries(sessions);
+  const totalStudents = new Set(rows.map(r => r.student_id)).size;
+
+  summaryEl.classList.remove('hidden');
+  summaryEl.innerHTML = `
+    <div class="rs-stat"><div class="rs-stat-num">${sessionList.length}</div><div class="rs-stat-label">Sessions</div></div>
+    <div class="rs-stat"><div class="rs-stat-num">${rows.length}</div><div class="rs-stat-label">Total Marks</div></div>
+    <div class="rs-stat"><div class="rs-stat-num">${totalStudents}</div><div class="rs-stat-label">Unique Students</div></div>
+  `;
+
+  listEl.innerHTML = sessionList.map(([sid, s], idx) => {
+    const dt = new Date(s.date);
+    const dateStr = dt.toLocaleDateString([], {year:'numeric',month:'short',day:'numeric'});
+    const timeStr = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    return `
+    <div class="record-session">
+      <div class="rs-header" onclick="toggleSession(this)">
+        <div class="rs-left">
+          <span class="rs-date">${dateStr} at ${timeStr}</span>
+          <span class="rs-code">Code: ${s.code}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <span class="rs-count">${s.students.length} student${s.students.length!==1?'s':''}</span>
+          <span class="rs-chevron">&#8250;</span>
+        </div>
+      </div>
+      <div class="rs-body">
+        ${s.students.map((st, i) => {
+          const t = new Date(st.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+          return `<div class="rs-student"><span class="rs-snum">${i+1}</span><span class="rs-semail">${st.student_email || st.student_id.slice(0,8)}</span><span class="rs-stime">${t}</span></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSession(headerEl) {
+  const body = headerEl.nextElementSibling;
+  const chevron = headerEl.querySelector('.rs-chevron');
+  body.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+async function loadClassTabs() {
+  try {
+    const res = await api('/sessions/history');
+    if (!res.ok) return;
+    const sessions = await res.json();
+    const classes = [...new Set(sessions.map(s => s.class_id))];
+    const tabsEl = document.getElementById('class-tabs');
+    if (!classes.length) { tabsEl.innerHTML = ''; return; }
+    tabsEl.innerHTML = classes.map(c =>
+      `<button class="ht-btn" onclick="quickSearch('${c.replace(/'/g,"\\'")}')">` + c + `</button>`
+    ).join('');
+  } catch (_) {}
+}
+
+function quickSearch(classId) {
+  document.getElementById('search-class').value = classId;
+  document.querySelectorAll('.ht-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent === classId)
+  );
+  searchAttendance();
+}
+
+/* ── Audio Chirp Transmitter ── */
+const chirp = {
+  CHARS: "ABCDEFGHJKMNPQRSTUVWXYZ23456789",
+  SYNC: 12000,
+  BASE: 12300,
+  STEP: 80,
+  TONE_S: 0.25,
+  GAP_S: 0.10,
+  PAUSE_S: 1.5,
+  ctx: null, interval: null, muted: false, emitCount: 0,
+
+  warmUp() {
+    if (this.ctx && this.ctx.state !== 'closed') return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.ctx.resume();
+    this._log('AudioContext created, state=' + this.ctx.state + ', sampleRate=' + this.ctx.sampleRate);
+  },
+
+  start(code) {
+    this.code = code.toUpperCase();
+    this.emitCount = 0;
+    if (!this.ctx || this.ctx.state === 'closed') this.warmUp();
+    this.ctx.resume();
+    this.muted = false;
+    this._log('Starting chirp for code: ' + this.code);
+    this._logFreqs();
+    this._emit();
+    const slotS = this.TONE_S + this.GAP_S;
+    const cycleMs = ((1 + this.code.length) * slotS + this.PAUSE_S) * 1000;
+    this.interval = setInterval(() => this._emit(), cycleMs);
+    document.getElementById('chirp-toggle').textContent = 'Mute';
+    document.getElementById('chirp-toggle').classList.remove('muted');
+    document.getElementById('chirp-label').textContent = 'Chirp active — emitting...';
+  },
+
+  _logFreqs() {
+    const freqs = [this.SYNC + ' (sync)'];
+    for (const ch of this.code) {
+      const i = this.CHARS.indexOf(ch);
+      freqs.push((this.BASE + i * this.STEP) + ' (' + ch + ')');
+    }
+    this._log('Frequencies: ' + freqs.join(', '));
+  },
+
+  _emit() {
+    if (!this.ctx || this.muted) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    const slot = this.TONE_S + this.GAP_S;
+    let t = this.ctx.currentTime + 0.05;
+    this._tone(this.SYNC, t, this.TONE_S);
+    t += slot;
+    for (const ch of this.code) {
+      const i = this.CHARS.indexOf(ch);
+      if (i < 0) continue;
+      this._tone(this.BASE + i * this.STEP, t, this.TONE_S);
+      t += slot;
+    }
+    this.emitCount++;
+    document.getElementById('chirp-label').textContent =
+      'Chirp active — emit #' + this.emitCount + ' (ctx=' + this.ctx.state + ')';
+  },
+
+  _tone(freq, start, dur) {
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(1.0, start + 0.008);
+    g.gain.setValueAtTime(1.0, start + dur - 0.008);
+    g.gain.linearRampToValueAtTime(0, start + dur);
+    o.connect(g);
+    g.connect(this.ctx.destination);
+    o.start(start);
+    o.stop(start + dur + 0.02);
+  },
+
+  testSound() {
+    if (!this.ctx || this.ctx.state === 'closed') this.warmUp();
+    this.ctx.resume();
+    const t = this.ctx.currentTime + 0.05;
+    this._tone(1000, t, 0.3);
+    this._tone(this.SYNC, t + 0.4, 0.5);
+    this._log('Test: 1kHz beep then ' + this.SYNC + 'Hz sync tone. If you hear nothing, check volume.');
+  },
+
+  toggle() {
+    this.muted = !this.muted;
+    if (!this.muted && this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    const btn = document.getElementById('chirp-toggle');
+    btn.textContent = this.muted ? 'Unmute' : 'Mute';
+    btn.classList.toggle('muted', this.muted);
+    document.getElementById('chirp-label').textContent = this.muted ? 'Chirp muted' : 'Chirp active — emitting...';
+  },
+
+  stop() {
+    clearInterval(this.interval); this.interval = null;
+    if (this.ctx) { this.ctx.close(); this.ctx = null; }
+    this._log('Chirp stopped');
+  },
+
+  _log(msg) {
+    const el = document.getElementById('chirp-debug');
+    if (!el) return;
+    const line = new Date().toLocaleTimeString() + ' ' + msg;
+    el.textContent = line + '\n' + (el.textContent || '').split('\n').slice(0, 4).join('\n');
+  }
+};
+
+document.getElementById('chirp-toggle').addEventListener('click', () => chirp.toggle());
+document.getElementById('chirp-test').addEventListener('click', () => { chirp.warmUp(); chirp.testSound(); });
+
+/* ── Signal Broadcasting ── */
+function openSignal({ sessionId, code, classId, expiresIn }) {
+  currentSession = { sessionId, code, classId };
+  show('signal-screen');
+
+  document.getElementById('sig-code').textContent = code;
+  document.getElementById('sig-class').textContent = classId;
+  document.getElementById('sig-count-num').textContent = '0';
+  document.getElementById('student-list').innerHTML = '';
+
+  const qrData = `${window.location.origin}/student.html?code=${code}`;
+  QRCode.toCanvas(document.getElementById('qr-canvas'), qrData, {
+    width: 180, margin: 0,
+    color: { dark: '#1e1b4b', light: '#ffffff' },
+  });
+
+  chirp.start(code);
+
+  let remaining = expiresIn;
+  updateTimer(remaining);
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timerInterval); clearInterval(pollInterval);
+      toast('Session expired', 'error');
+      goBackDash();
+      return;
+    }
+    updateTimer(remaining);
+  }, 1000);
+
+  clearInterval(pollInterval);
+  pollAttendance();
+  pollInterval = setInterval(pollAttendance, 5000);
+}
+
+function updateTimer(sec) {
+  const el = document.getElementById('sig-timer');
+  el.textContent = fmtTime(sec);
+  el.className = 'sig-timer' + (sec <= 30 ? ' critical' : sec <= 60 ? ' warn' : '');
+}
+
+async function pollAttendance() {
+  if (!currentSession) return;
+  try {
+    const res = await api(`/attendance/session/${currentSession.sessionId}`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    document.getElementById('sig-count-num').textContent = rows.length;
+    const listEl = document.getElementById('student-list');
+    if (rows.length === 0) { listEl.innerHTML = ''; return; }
+    listEl.innerHTML = rows.map((r, i) => {
+      const email = r.student_email || r.student_id.slice(0, 8);
+      const time = new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<div class="sl-item"><span class="sl-num">${i+1}</span><span class="sl-email">${email}</span><span class="sl-time">${time}</span></div>`;
+    }).join('');
+  } catch (_) {}
+}
+
+document.getElementById('back-btn').addEventListener('click', goBackDash);
+function goBackDash() {
+  clearInterval(timerInterval); clearInterval(pollInterval);
+  chirp.stop();
+  currentSession = null;
+  enterDashboard();
+}
+
+/* ── Init ── */
+if (accessToken && userEmail) { enterDashboard(); }
+</script>
+</body>
+</html>
