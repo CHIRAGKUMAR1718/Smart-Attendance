@@ -1,6 +1,8 @@
 import redis from "../config/redis.js";
 import { db } from "../config/db.js";
 
+const FIXED_SIGNAL_SESSION_KEY = "chirp:fixed:active";
+
 const fail = (status, message) => {
   const err = new Error(message);
   err.status = status;
@@ -29,6 +31,13 @@ export const markStudentAttendance = async (sessionId, studentId) => {
     if (e && e.code === "23505") fail(409, "Already marked");
     throw e;
   }
+};
+
+export const markStudentAttendanceByFixedSignal = async (studentId) => {
+  const sessionId = await redis.get(FIXED_SIGNAL_SESSION_KEY);
+  if (!sessionId) fail(404, "No active fixed-tone session");
+  await markStudentAttendance(sessionId, studentId);
+  return sessionId;
 };
 
 export const listAttendance = async ({ limit = 50, offset = 0 } = {}) => {

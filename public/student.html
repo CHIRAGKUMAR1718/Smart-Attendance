@@ -412,23 +412,19 @@ function logout() {
   show('auth-screen');
 }
 
-/* ── Submit attendance code ── */
-async function submitCode(code) {
+/* ── Mark attendance after fixed-tone detection ── */
+async function submitBySignal() {
   stopListening();
   show('loading-screen');
   try {
-    const lookupRes = await api(`/sessions/code/${encodeURIComponent(code)}`);
-    const lookupData = await lookupRes.json();
-    if (!lookupRes.ok) throw new Error(lookupData.message || 'Invalid code');
-
-    const markRes = await api('/attendance/mark', {
+    const markRes = await api('/attendance/mark-by-signal', {
       method: 'POST',
-      body: JSON.stringify({ sessionId: lookupData.sessionId }),
+      body: JSON.stringify({}),
     });
     const markData = await markRes.json();
     if (!markRes.ok) throw new Error(markData.message || 'Failed to mark');
 
-    showResult('success', 'Attendance Marked!', `You're checked in for ${lookupData.classId}`);
+    showResult('success', 'Attendance Marked!', "You're checked in for the active class session.");
   } catch (err) {
     const msg = err.message;
     if (msg.includes('Already marked') || msg.includes('409')) {
@@ -453,27 +449,18 @@ document.getElementById('result-back').addEventListener('click', () => enterDash
 /* ══════════════════════════════════════════════
    ── Ultrasonic Signal Receiver ──
    ══════════════════════════════════════════════ */
-const US_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const US_PREAMBLE = 17800;
-const US_BASE = 18000;
-const US_STEP = 55;
+const US_FIXED_FREQ = 18855;
 const US_FFT = 8192;
 const US_POWER_THRESH = -70;
 const US_POLL_MS = 30;
+const US_CONFIRM_FRAMES = 6;
+const US_FREQ_TOLERANCE = 28;
 
 let usAudioCtx = null;
 let usAnalyser = null;
 let usMicStream = null;
 let usListenTimer = null;
 let usListening = false;
-
-function usFreqToChar(freq) {
-  const idx = Math.round((freq - US_BASE) / US_STEP);
-  if (idx < 0 || idx >= US_CHARSET.length) return null;
-  const snapped = US_BASE + idx * US_STEP;
-  if (Math.abs(freq - snapped) > US_STEP * 0.45) return null;
-  return US_CHARSET[idx];
-}
 
 function usPeakInRange(data, binW, minF, maxF) {
   const lo = Math.max(0, Math.floor(minF / binW));
@@ -539,13 +526,13 @@ function updateDetectChars(chars, state) {
   const status = document.getElementById('listen-status');
   if (state === 'complete') {
     status.className = 'listen-status detected';
-    status.innerHTML = '<span class="dot"></span> Signal decoded! Marking attendance...';
-  } else if (state === 'preamble' || state === 'receiving') {
+    status.innerHTML = '<span class="dot"></span> Fixed ultrasonic tone detected. Marking attendance...';
+  } else if (state === 'receiving') {
     status.className = 'listen-status detected';
-    status.innerHTML = '<span class="dot"></span> Signal detected! Decoding...';
+    status.innerHTML = '<span class="dot"></span> Tone detected. Confirming...';
   } else {
     status.className = 'listen-status';
-    status.innerHTML = '<span class="dot"></span> Listening for ultrasonic signal...';
+    status.innerHTML = '<span class="dot"></span> Listening for fixed ultrasonic tone...';
   }
 }
 
@@ -604,33 +591,20 @@ async function startListening() {
   const freqData = new Float32Array(usAnalyser.frequencyBinCount);
   const sr = usAudioCtx.sampleRate;
   const binW = sr / US_FFT;
-  const maxDataFreq = US_BASE + (US_CHARSET.length - 1) * US_STEP + US_STEP * 0.6;
-
-  let state = 'IDLE';
-  let preambleFrames = 0;
-  let silenceAfterPre = 0;
-  let chars = [];
-  let toneReadings = [];
-  let inTone = false;
-  let gapFrames = 0;
-  let lastEvent = Date.now();
-  let codeSubmitted = false;
-
-  function resetState() {
-    state = 'IDLE'; preambleFrames = 0; silenceAfterPre = 0;
-    chars = []; toneReadings = []; inTone = false; gapFrames = 0;
-    updateDetectChars([], 'idle');
-  }
+  let confirmFrames = 0;
+  let submitted = false;
+  const detectSlots = Array.from({ length: 6 }, () => '•');
 
   usListening = true;
 
   usListenTimer = setInterval(() => {
-    if (!usListening || codeSubmitted || !usAnalyser) return;
+    if (!usListening || submitted || !usAnalyser) return;
     usAnalyser.getFloatFrequencyData(freqData);
 
-    const pre = usPeakInRange(freqData, binW, US_PREAMBLE - 50, US_PREAMBLE + 50);
-    const dat = usPeakInRange(freqData, binW, US_BASE - US_STEP * 0.4, maxDataFreq);
+    const dat = usPeakInRange(freqData, binW, US_FIXED_FREQ - 120, US_FIXED_FREQ + 120);
     const now = Date.now();
+    const closeToTarget = Math.abs(dat.freq - US_FIXED_FREQ) <= US_FREQ_TOLERANCE;
+    const strongTone = dat.power > US_POWER_THRESH && closeToTarget;
 
     updateFreqBars(freqData, binW);
 
@@ -638,92 +612,25 @@ async function startListening() {
       lastDebugUpdate = now;
       const fmt = (v) => (Number.isFinite(v) ? v.toFixed(1) : String(v));
       debugEl.textContent =
-        'state=' + state + '\n' +
         'sr=' + fmt(sr) + 'Hz binW=' + fmt(binW) + 'Hz\n' +
-        'pre=' + fmt(pre.freq) + 'Hz p=' + fmt(pre.power) + 'dB (' + (pre.power > US_POWER_THRESH ? 'ABOVE' : 'below') + ')\n' +
-        'dat=' + fmt(dat.freq) + 'Hz p=' + fmt(dat.power) + 'dB (' + (dat.power > US_POWER_THRESH ? 'ABOVE' : 'below') + ')\n' +
-        'preambleFrames=' + preambleFrames + ' silenceAfterPre=' + silenceAfterPre + ' inTone=' + (inTone ? '1' : '0') + '\n' +
-        'chars=' + chars.length + '/6 threshold=' + US_POWER_THRESH + 'dB';
+        'target=' + US_FIXED_FREQ + 'Hz tolerance=' + US_FREQ_TOLERANCE + 'Hz\n' +
+        'dat=' + fmt(dat.freq) + 'Hz p=' + fmt(dat.power) + 'dB (' + (strongTone ? 'MATCH' : 'no') + ')\n' +
+        'confirmFrames=' + confirmFrames + '/' + US_CONFIRM_FRAMES + ' threshold=' + US_POWER_THRESH + 'dB';
     }
 
-    if (state !== 'IDLE' && now - lastEvent > 8000) {
-      resetState();
-      return;
+    if (strongTone) {
+      confirmFrames = Math.min(US_CONFIRM_FRAMES, confirmFrames + 1);
+    } else {
+      confirmFrames = Math.max(0, confirmFrames - 1);
     }
 
-    switch (state) {
-      case 'IDLE':
-        if (pre.power > US_POWER_THRESH) {
-          preambleFrames++;
-          if (preambleFrames >= 4) {
-            state = 'AFTER_PRE'; silenceAfterPre = 0; chars = [];
-            toneReadings = []; inTone = false; gapFrames = 0;
-            lastEvent = now;
-            updateDetectChars([], 'preamble');
-          }
-        } else {
-          preambleFrames = Math.max(0, preambleFrames - 1);
-        }
-        break;
+    const filled = Math.min(detectSlots.length, confirmFrames);
+    updateDetectChars(detectSlots.slice(0, filled), confirmFrames >= US_CONFIRM_FRAMES ? 'complete' : (filled > 0 ? 'receiving' : 'idle'));
 
-      case 'AFTER_PRE':
-        if (pre.power < US_POWER_THRESH - 5) {
-          silenceAfterPre++;
-          if (silenceAfterPre >= 2) {
-            state = 'RECV'; inTone = false; toneReadings = []; gapFrames = 0;
-            lastEvent = now;
-          }
-        } else {
-          lastEvent = now;
-        }
-        break;
-
-      case 'RECV': {
-        const preStrong = pre.power > US_POWER_THRESH;
-        const datStrong = dat.power > US_POWER_THRESH;
-
-        const isData = datStrong && dat.power > pre.power - 6;
-        const isPre = preStrong && pre.power > dat.power + 6;
-
-        if (isData && !isPre) {
-          if (!inTone) { inTone = true; toneReadings = []; gapFrames = 0; }
-          toneReadings.push(dat.freq);
-          lastEvent = now;
-        } else {
-          if (inTone && toneReadings.length >= 2) {
-            toneReadings.sort((a, b) => a - b);
-            const median = toneReadings[Math.floor(toneReadings.length / 2)];
-            const ch = usFreqToChar(median);
-            if (ch) {
-              chars.push(ch);
-              updateDetectChars(chars, 'receiving');
-            }
-            toneReadings = []; inTone = false;
-            lastEvent = now;
-
-            if (chars.length >= 6) {
-              codeSubmitted = true;
-              const code = chars.join('');
-              updateDetectChars(chars, 'complete');
-              toast('Ultrasonic signal decoded: ' + code);
-              setTimeout(() => submitCode(code), 400);
-              return;
-            }
-          } else if (inTone) {
-            gapFrames++;
-            if (gapFrames >= 3) {
-              toneReadings = []; inTone = false; gapFrames = 0;
-            }
-          }
-
-          if (isPre && chars.length === 0) {
-            state = 'AFTER_PRE'; silenceAfterPre = 0;
-            toneReadings = []; inTone = false; gapFrames = 0;
-            lastEvent = now;
-          }
-        }
-        break;
-      }
+    if (confirmFrames >= US_CONFIRM_FRAMES) {
+      submitted = true;
+      toast('Ultrasonic fixed tone detected');
+      setTimeout(() => submitBySignal(), 350);
     }
   }, US_POLL_MS);
 }

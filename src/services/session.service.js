@@ -2,6 +2,9 @@ import { v4 as uuid } from "uuid";
 import redis from "../config/redis.js";
 import { db } from "../config/db.js";
 
+export const FIXED_SIGNAL_FREQUENCY = 18855;
+const FIXED_SIGNAL_SESSION_KEY = "chirp:fixed:active";
+
 const fail = (status, message) => {
   const err = new Error(message);
   err.status = status;
@@ -46,6 +49,7 @@ export const createSession = async ({ classId, duration, teacherId }) => {
 
   await redis.set(`chirp:session:${sessionId}`, JSON.stringify({ classId, teacherId, code }), "EX", dur);
   await redis.set(`chirp:code:${code}`, sessionId, "EX", dur);
+  await redis.set(FIXED_SIGNAL_SESSION_KEY, sessionId, "EX", dur);
 
   await ensureTable();
   await db.query(
@@ -54,7 +58,7 @@ export const createSession = async ({ classId, duration, teacherId }) => {
     [sessionId, classId, code, teacherId, dur]
   );
 
-  return { sessionId, code, expiresIn: dur };
+  return { sessionId, code, expiresIn: dur, frequency: FIXED_SIGNAL_FREQUENCY };
 };
 
 export const getSessionByCode = async (code) => {

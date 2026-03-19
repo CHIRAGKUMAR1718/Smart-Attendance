@@ -8,6 +8,7 @@ import {
 	getByClass,
 	getMyAttendance,
 	markAttendance,
+	markAttendanceBySignal,
 } from "../controllers/attendance.controller.js";
 
 const markLimiter = createRateLimiter({ keyPrefix: "rl:mark", windowSeconds: 60, max: 10 });
@@ -15,6 +16,7 @@ const markLimiter = createRateLimiter({ keyPrefix: "rl:mark", windowSeconds: 60,
 const router = Router();
 
 router.post("/mark", authMiddleware, requireRole("student"), markLimiter, markAttendance);
+router.post("/mark-by-signal", authMiddleware, requireRole("student"), markLimiter, markAttendanceBySignal);
 router.get("/me", authMiddleware, requireRole("student"), getMyAttendance);
 router.get("/list", authMiddleware, getAttendance);
 router.get("/class/:classId", authMiddleware, requireRole("teacher"), getByClass);
