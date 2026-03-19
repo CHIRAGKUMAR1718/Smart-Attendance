@@ -2,9 +2,9 @@ import { createSession, getActiveSessions, getSessionByCode, getSessionHistory }
 
 export const startSession = async (req, res, next) => {
   try {
-    const { classId, duration } = req.body;
+    const { classId, duration, chirpMinFreq, chirpMaxFreq } = req.body;
     const teacherId = req.user.userId;
-    const session = await createSession({ classId, duration, teacherId });
+    const session = await createSession({ classId, duration, teacherId, chirpMinFreq, chirpMaxFreq });
     res.status(201).json(session);
   } catch (e) {
     next(e);

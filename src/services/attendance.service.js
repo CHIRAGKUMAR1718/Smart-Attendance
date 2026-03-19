@@ -1,8 +1,6 @@
 import redis from "../config/redis.js";
 import { db } from "../config/db.js";
 
-const FIXED_SIGNAL_SESSION_KEY = "chirp:fixed:active";
-
 const fail = (status, message) => {
   const err = new Error(message);
   err.status = status;
@@ -33,11 +31,35 @@ export const markStudentAttendance = async (sessionId, studentId) => {
   }
 };
 
-export const markStudentAttendanceByFixedSignal = async (studentId) => {
-  const sessionId = await redis.get(FIXED_SIGNAL_SESSION_KEY);
-  if (!sessionId) fail(404, "No active fixed-tone session");
-  await markStudentAttendance(sessionId, studentId);
-  return sessionId;
+export const markStudentAttendanceBySignalFrequency = async (studentId, detectedFrequency) => {
+  const frequency = Number(detectedFrequency);
+  if (!Number.isFinite(frequency)) fail(400, "detected frequency is required");
+
+  const keys = await redis.keys("chirp:session:*");
+  if (!keys.length) fail(404, "No active chirp session");
+
+  let matched = null;
+  let bestTtl = -1;
+
+  for (const key of keys) {
+    const raw = await redis.get(key);
+    if (!raw) continue;
+    const data = JSON.parse(raw);
+    const minFreq = Number(data?.chirpMinFreq ?? 18000);
+    const maxFreq = Number(data?.chirpMaxFreq ?? 20000);
+    if (!Number.isFinite(minFreq) || !Number.isFinite(maxFreq)) continue;
+    if (frequency < minFreq || frequency > maxFreq) continue;
+
+    const ttl = await redis.ttl(key);
+    if (ttl > bestTtl) {
+      matched = key.replace("chirp:session:", "");
+      bestTtl = ttl;
+    }
+  }
+
+  if (!matched) fail(404, "No active session matches detected frequency");
+  await markStudentAttendance(matched, studentId);
+  return matched;
 };
 
 export const listAttendance = async ({ limit = 50, offset = 0 } = {}) => {

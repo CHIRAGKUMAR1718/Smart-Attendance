@@ -4,7 +4,7 @@ import {
   listAttendanceByStudent,
   listAttendanceByClass,
   markStudentAttendance,
-  markStudentAttendanceByFixedSignal,
+  markStudentAttendanceBySignalFrequency,
 } from "../services/attendance.service.js";
 
 export const markAttendance = async (req, res, next) => {
@@ -21,7 +21,8 @@ export const markAttendance = async (req, res, next) => {
 export const markAttendanceBySignal = async (req, res, next) => {
   try {
     const studentId = req.user.userId;
-    const sessionId = await markStudentAttendanceByFixedSignal(studentId);
+    const { frequency } = req.body;
+    const sessionId = await markStudentAttendanceBySignalFrequency(studentId, frequency);
     res.status(201).json({ message: "Attendance marked", sessionId });
   } catch (e) {
     next(e);

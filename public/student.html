@@ -412,14 +412,14 @@ function logout() {
   show('auth-screen');
 }
 
-/* ── Mark attendance after fixed-tone detection ── */
-async function submitBySignal() {
+/* ── Mark attendance after chirp-range detection ── */
+async function submitBySignal(detectedFrequency) {
   stopListening();
   show('loading-screen');
   try {
     const markRes = await api('/attendance/mark-by-signal', {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify({ frequency: detectedFrequency }),
     });
     const markData = await markRes.json();
     if (!markRes.ok) throw new Error(markData.message || 'Failed to mark');
@@ -449,12 +449,13 @@ document.getElementById('result-back').addEventListener('click', () => enterDash
 /* ══════════════════════════════════════════════
    ── Ultrasonic Signal Receiver ──
    ══════════════════════════════════════════════ */
-const US_FIXED_FREQ = 18855;
+const US_CHIRP_MIN_FREQ = 18000;
+const US_CHIRP_MAX_FREQ = 20000;
 const US_FFT = 8192;
-const US_POWER_THRESH = -70;
+const US_POWER_THRESH = -90;
 const US_POLL_MS = 30;
 const US_CONFIRM_FRAMES = 6;
-const US_FREQ_TOLERANCE = 28;
+const US_MIN_PROMINENCE_DB = 7;
 
 let usAudioCtx = null;
 let usAnalyser = null;
@@ -478,6 +479,21 @@ function usPeakInRange(data, binW, minF, maxF) {
     }
   }
   return { freq: bestBin * binW, power: best };
+}
+
+function usAvgInRange(data, binW, minF, maxF) {
+  const lo = Math.max(0, Math.floor(minF / binW));
+  const hi = Math.min(data.length - 1, Math.ceil(maxF / binW));
+  let sum = 0;
+  let n = 0;
+  for (let i = lo; i <= hi; i++) {
+    const v = data[i];
+    if (Number.isFinite(v)) {
+      sum += v;
+      n++;
+    }
+  }
+  return n ? (sum / n) : -120;
 }
 
 function initFreqBars() {
@@ -526,13 +542,13 @@ function updateDetectChars(chars, state) {
   const status = document.getElementById('listen-status');
   if (state === 'complete') {
     status.className = 'listen-status detected';
-    status.innerHTML = '<span class="dot"></span> Fixed ultrasonic tone detected. Marking attendance...';
+    status.innerHTML = '<span class="dot"></span> Ultrasonic chirp detected. Marking attendance...';
   } else if (state === 'receiving') {
     status.className = 'listen-status detected';
-    status.innerHTML = '<span class="dot"></span> Tone detected. Confirming...';
+    status.innerHTML = '<span class="dot"></span> Chirp signal detected. Confirming...';
   } else {
     status.className = 'listen-status';
-    status.innerHTML = '<span class="dot"></span> Listening for fixed ultrasonic tone...';
+    status.innerHTML = '<span class="dot"></span> Listening for ultrasonic chirp (18kHz-20kHz)...';
   }
 }
 
@@ -593,6 +609,7 @@ async function startListening() {
   const binW = sr / US_FFT;
   let confirmFrames = 0;
   let submitted = false;
+  let lastDetectedFreq = null;
   const detectSlots = Array.from({ length: 6 }, () => '•');
 
   usListening = true;
@@ -601,10 +618,12 @@ async function startListening() {
     if (!usListening || submitted || !usAnalyser) return;
     usAnalyser.getFloatFrequencyData(freqData);
 
-    const dat = usPeakInRange(freqData, binW, US_FIXED_FREQ - 120, US_FIXED_FREQ + 120);
+    const dat = usPeakInRange(freqData, binW, US_CHIRP_MIN_FREQ, US_CHIRP_MAX_FREQ);
     const now = Date.now();
-    const closeToTarget = Math.abs(dat.freq - US_FIXED_FREQ) <= US_FREQ_TOLERANCE;
-    const strongTone = dat.power > US_POWER_THRESH && closeToTarget;
+    const inChirpRange = dat.freq >= US_CHIRP_MIN_FREQ && dat.freq <= US_CHIRP_MAX_FREQ;
+    const noiseFloor = usAvgInRange(freqData, binW, US_CHIRP_MIN_FREQ - 900, US_CHIRP_MAX_FREQ + 900);
+    const prominence = dat.power - noiseFloor;
+    const strongTone = dat.power > US_POWER_THRESH && prominence >= US_MIN_PROMINENCE_DB && inChirpRange;
 
     updateFreqBars(freqData, binW);
 
@@ -613,13 +632,15 @@ async function startListening() {
       const fmt = (v) => (Number.isFinite(v) ? v.toFixed(1) : String(v));
       debugEl.textContent =
         'sr=' + fmt(sr) + 'Hz binW=' + fmt(binW) + 'Hz\n' +
-        'target=' + US_FIXED_FREQ + 'Hz tolerance=' + US_FREQ_TOLERANCE + 'Hz\n' +
-        'dat=' + fmt(dat.freq) + 'Hz p=' + fmt(dat.power) + 'dB (' + (strongTone ? 'MATCH' : 'no') + ')\n' +
-        'confirmFrames=' + confirmFrames + '/' + US_CONFIRM_FRAMES + ' threshold=' + US_POWER_THRESH + 'dB';
+        'chirpRange=' + US_CHIRP_MIN_FREQ + '-' + US_CHIRP_MAX_FREQ + 'Hz\n' +
+        'dat=' + fmt(dat.freq) + 'Hz p=' + fmt(dat.power) + 'dB\n' +
+        'noise=' + fmt(noiseFloor) + 'dB prominence=' + fmt(prominence) + 'dB (' + (strongTone ? 'MATCH' : 'no') + ')\n' +
+        'confirmFrames=' + confirmFrames + '/' + US_CONFIRM_FRAMES + ' threshold=' + US_POWER_THRESH + 'dB minProm=' + US_MIN_PROMINENCE_DB + 'dB';
     }
 
     if (strongTone) {
       confirmFrames = Math.min(US_CONFIRM_FRAMES, confirmFrames + 1);
+      lastDetectedFreq = dat.freq;
     } else {
       confirmFrames = Math.max(0, confirmFrames - 1);
     }
@@ -629,8 +650,8 @@ async function startListening() {
 
     if (confirmFrames >= US_CONFIRM_FRAMES) {
       submitted = true;
-      toast('Ultrasonic fixed tone detected');
-      setTimeout(() => submitBySignal(), 350);
+      toast('Ultrasonic chirp detected');
+      setTimeout(() => submitBySignal(lastDetectedFreq), 350);
     }
   }, US_POLL_MS);
 }

@@ -14,8 +14,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   code VARCHAR(6) NOT NULL,
   teacher_id VARCHAR(100) NOT NULL,
   duration INTEGER NOT NULL,
+  chirp_min_freq INTEGER NOT NULL DEFAULT 18000,
+  chirp_max_freq INTEGER NOT NULL DEFAULT 20000,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS chirp_min_freq INTEGER NOT NULL DEFAULT 18000;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS chirp_max_freq INTEGER NOT NULL DEFAULT 20000;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_teacher ON sessions (teacher_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_class ON sessions (class_id);

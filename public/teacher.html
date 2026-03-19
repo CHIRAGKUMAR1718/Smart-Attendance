@@ -333,6 +333,14 @@
           <button type="button" class="dur-btn" data-dur="900">15 min</button>
           <button type="button" class="dur-btn" data-dur="1800">30 min</button>
         </div>
+        <div class="form-group">
+          <label class="form-label">Ultrasonic Chirp Band</label>
+          <select class="form-input" id="chirp-band">
+            <option value="18000-20000">18.0 kHz - 20.0 kHz (default)</option>
+            <option value="18100-19600">18.1 kHz - 19.6 kHz</option>
+            <option value="18500-20000">18.5 kHz - 20.0 kHz</option>
+          </select>
+        </div>
         <button type="submit" class="btn btn-primary" id="start-btn">Start Broadcasting</button>
       </form>
     </div>
@@ -397,6 +405,8 @@ let currentSession = null;
 let timerInterval = null;
 let pollInterval = null;
 let selectedDuration = 300;
+let selectedChirpMinFreq = 18000;
+let selectedChirpMaxFreq = 20000;
 
 /* ── Helpers ── */
 async function api(path, opts = {}) {
@@ -507,6 +517,14 @@ document.querySelectorAll('.dur-btn').forEach(btn => {
   });
 });
 
+document.getElementById('chirp-band').addEventListener('change', (e) => {
+  const [minF, maxF] = String(e.target.value || '').split('-').map(Number);
+  if (Number.isFinite(minF) && Number.isFinite(maxF) && minF < maxF) {
+    selectedChirpMinFreq = minF;
+    selectedChirpMaxFreq = maxF;
+  }
+});
+
 /* Start session */
 document.getElementById('session-form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -516,11 +534,23 @@ document.getElementById('session-form').addEventListener('submit', async e => {
     const classId = document.getElementById('class-id').value.trim();
     const res = await api('/sessions/start', {
       method: 'POST',
-      body: JSON.stringify({ classId, duration: selectedDuration }),
+      body: JSON.stringify({
+        classId,
+        duration: selectedDuration,
+        chirpMinFreq: selectedChirpMinFreq,
+        chirpMaxFreq: selectedChirpMaxFreq,
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed');
-    openSignal({ sessionId: data.sessionId, code: data.code, classId, expiresIn: data.expiresIn });
+    openSignal({
+      sessionId: data.sessionId,
+      code: data.code,
+      classId,
+      expiresIn: data.expiresIn,
+      chirpMinFreq: data.chirpMinFreq ?? selectedChirpMinFreq,
+      chirpMaxFreq: data.chirpMaxFreq ?? selectedChirpMaxFreq,
+    });
     toast('Session started — broadcasting!');
   } catch (err) { toast(err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Start Broadcasting'; }
@@ -534,7 +564,7 @@ async function loadSessions() {
     const el = document.getElementById('sessions-list');
     if (!sessions.length) { el.innerHTML = '<div class="empty">No active sessions</div>'; return; }
     el.innerHTML = sessions.map(s => `
-      <div class="session-item" data-id="${s.sessionId}" data-code="${s.code}" data-class="${s.classId}" data-ttl="${s.remainingSeconds}">
+      <div class="session-item" data-id="${s.sessionId}" data-code="${s.code}" data-class="${s.classId}" data-ttl="${s.remainingSeconds}" data-chirp-min="${s.chirpMinFreq || 18000}" data-chirp-max="${s.chirpMaxFreq || 20000}">
         <div class="si-left">
           <span class="si-class">${s.classId}</span>
           <span class="si-code">${s.code}</span>
@@ -547,6 +577,8 @@ async function loadSessions() {
         openSignal({
           sessionId: item.dataset.id, code: item.dataset.code,
           classId: item.dataset.class, expiresIn: Number(item.dataset.ttl),
+          chirpMinFreq: Number(item.dataset.chirpMin),
+          chirpMaxFreq: Number(item.dataset.chirpMax),
         });
       });
     });
@@ -663,11 +695,17 @@ function quickSearch(classId) {
 }
 
 /* ── Signal Broadcasting ── */
-function openSignal({ sessionId, code, classId, expiresIn }) {
-  currentSession = { sessionId, code, classId };
+function openSignal({ sessionId, code, classId, expiresIn, chirpMinFreq, chirpMaxFreq }) {
+  currentSession = {
+    sessionId,
+    code,
+    classId,
+    chirpMinFreq: Number.isFinite(Number(chirpMinFreq)) ? Number(chirpMinFreq) : US_CHIRP_MIN_FREQ,
+    chirpMaxFreq: Number.isFinite(Number(chirpMaxFreq)) ? Number(chirpMaxFreq) : US_CHIRP_MAX_FREQ,
+  };
   show('signal-screen');
 
-  document.getElementById('sig-code').textContent = `${US_FIXED_FREQ} Hz`;
+  document.getElementById('sig-code').textContent = `${currentSession.chirpMinFreq}-${currentSession.chirpMaxFreq} Hz`;
   document.getElementById('sig-class').textContent = classId;
   document.getElementById('sig-count-num').textContent = '0';
   document.getElementById('student-list').innerHTML = '';
@@ -726,31 +764,50 @@ function goBackDash() {
 }
 
 /* ── Ultrasonic Broadcasting ── */
-const US_FIXED_FREQ = 18855;
+const US_CHIRP_MIN_FREQ = 18000;
+const US_CHIRP_MAX_FREQ = 20000;
+const US_CHIRP_SWEEP_SEC = 1.2;
 const US_LEVEL = 0.95;
 
 let usAudioCtx = null;
 let usOsc = null;
 let usGain = null;
 let usActive = false;
+let usChirpTimer = null;
 
 function startBroadcasting() {
   if (usActive) stopBroadcasting();
+  const minFreq = currentSession?.chirpMinFreq ?? US_CHIRP_MIN_FREQ;
+  const maxFreq = currentSession?.chirpMaxFreq ?? US_CHIRP_MAX_FREQ;
   usAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   usOsc = usAudioCtx.createOscillator();
   usGain = usAudioCtx.createGain();
   usOsc.type = 'sine';
-  usOsc.frequency.value = US_FIXED_FREQ;
+  usOsc.frequency.value = minFreq;
   usGain.gain.setValueAtTime(0.0001, usAudioCtx.currentTime);
   usGain.gain.linearRampToValueAtTime(US_LEVEL, usAudioCtx.currentTime + 0.05);
   usOsc.connect(usGain);
   usGain.connect(usAudioCtx.destination);
   usOsc.start();
+  const startAt = usAudioCtx.currentTime + 0.02;
+  usOsc.frequency.setValueAtTime(minFreq, startAt);
+  usOsc.frequency.linearRampToValueAtTime(maxFreq, startAt + US_CHIRP_SWEEP_SEC);
+  usChirpTimer = setInterval(() => {
+    if (!usAudioCtx || !usOsc) return;
+    const t = usAudioCtx.currentTime + 0.02;
+    usOsc.frequency.cancelScheduledValues(t);
+    usOsc.frequency.setValueAtTime(minFreq, t);
+    usOsc.frequency.linearRampToValueAtTime(maxFreq, t + US_CHIRP_SWEEP_SEC);
+  }, Math.max(250, Math.floor(US_CHIRP_SWEEP_SEC * 1000)));
   usActive = true;
 }
 
 function stopBroadcasting() {
   usActive = false;
+  if (usChirpTimer) {
+    clearInterval(usChirpTimer);
+    usChirpTimer = null;
+  }
   if (usGain && usAudioCtx) {
     const t = usAudioCtx.currentTime;
     usGain.gain.cancelScheduledValues(t);

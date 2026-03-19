@@ -2,8 +2,8 @@ import { v4 as uuid } from "uuid";
 import redis from "../config/redis.js";
 import { db } from "../config/db.js";
 
-export const FIXED_SIGNAL_FREQUENCY = 18855;
-const FIXED_SIGNAL_SESSION_KEY = "chirp:fixed:active";
+export const DEFAULT_CHIRP_MIN_FREQ = 18000;
+export const DEFAULT_CHIRP_MAX_FREQ = 20000;
 
 const fail = (status, message) => {
   const err = new Error(message);
@@ -21,9 +21,13 @@ const ensureTable = async () => {
       code VARCHAR(6) NOT NULL,
       teacher_id VARCHAR(100) NOT NULL,
       duration INTEGER NOT NULL,
+      chirp_min_freq INTEGER NOT NULL DEFAULT ${DEFAULT_CHIRP_MIN_FREQ},
+      chirp_max_freq INTEGER NOT NULL DEFAULT ${DEFAULT_CHIRP_MAX_FREQ},
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await db.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS chirp_min_freq INTEGER NOT NULL DEFAULT ${DEFAULT_CHIRP_MIN_FREQ}`);
+  await db.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS chirp_max_freq INTEGER NOT NULL DEFAULT ${DEFAULT_CHIRP_MAX_FREQ}`);
   tableReady = true;
 };
 
@@ -34,10 +38,16 @@ const generateCode = () => {
   return code;
 };
 
-export const createSession = async ({ classId, duration, teacherId }) => {
+export const createSession = async ({ classId, duration, teacherId, chirpMinFreq, chirpMaxFreq }) => {
   if (!classId || typeof classId !== "string") fail(400, "classId is required");
   const dur = Number(duration);
   if (!dur || dur < 30 || dur > 3600) fail(400, "duration must be 30–3600 seconds");
+  const minFreq = Number(chirpMinFreq ?? DEFAULT_CHIRP_MIN_FREQ);
+  const maxFreq = Number(chirpMaxFreq ?? DEFAULT_CHIRP_MAX_FREQ);
+  if (!Number.isFinite(minFreq) || !Number.isFinite(maxFreq)) fail(400, "chirp frequencies must be numbers");
+  if (minFreq < 17000 || maxFreq > 21000 || minFreq >= maxFreq) {
+    fail(400, "chirp frequency range must be between 17000 and 21000 Hz and min < max");
+  }
 
   const sessionId = uuid();
   let code, attempts = 0;
@@ -47,18 +57,23 @@ export const createSession = async ({ classId, duration, teacherId }) => {
   } while (++attempts < 10);
   if (attempts >= 10) fail(500, "Could not generate unique session code");
 
-  await redis.set(`chirp:session:${sessionId}`, JSON.stringify({ classId, teacherId, code }), "EX", dur);
+  await redis.set(
+    `chirp:session:${sessionId}`,
+    JSON.stringify({ classId, teacherId, code, chirpMinFreq: minFreq, chirpMaxFreq: maxFreq }),
+    "EX",
+    dur
+  );
   await redis.set(`chirp:code:${code}`, sessionId, "EX", dur);
-  await redis.set(FIXED_SIGNAL_SESSION_KEY, sessionId, "EX", dur);
 
   await ensureTable();
   await db.query(
-    `INSERT INTO sessions (id, class_id, code, teacher_id, duration) VALUES ($1,$2,$3,$4,$5)
+    `INSERT INTO sessions (id, class_id, code, teacher_id, duration, chirp_min_freq, chirp_max_freq)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
      ON CONFLICT (id) DO NOTHING`,
-    [sessionId, classId, code, teacherId, dur]
+    [sessionId, classId, code, teacherId, dur, minFreq, maxFreq]
   );
 
-  return { sessionId, code, expiresIn: dur, frequency: FIXED_SIGNAL_FREQUENCY };
+  return { sessionId, code, expiresIn: dur, chirpMinFreq: minFreq, chirpMaxFreq: maxFreq };
 };
 
 export const getSessionByCode = async (code) => {
@@ -69,7 +84,13 @@ export const getSessionByCode = async (code) => {
   if (!raw) fail(404, "Session expired");
   const session = JSON.parse(raw);
   const ttl = await redis.ttl(`chirp:session:${sessionId}`);
-  return { sessionId, classId: session.classId, remainingSeconds: ttl };
+  return {
+    sessionId,
+    classId: session.classId,
+    remainingSeconds: ttl,
+    chirpMinFreq: session.chirpMinFreq ?? DEFAULT_CHIRP_MIN_FREQ,
+    chirpMaxFreq: session.chirpMaxFreq ?? DEFAULT_CHIRP_MAX_FREQ,
+  };
 };
 
 export const getSessionHistory = async (teacherId) => {
@@ -99,7 +120,14 @@ export const getActiveSessions = async (teacherId) => {
     if (data && data.teacherId === teacherId) {
       const ttl = await redis.ttl(key);
       const sessionId = key.replace("chirp:session:", "");
-      sessions.push({ sessionId, classId: data.classId, code: data.code, remainingSeconds: ttl });
+      sessions.push({
+        sessionId,
+        classId: data.classId,
+        code: data.code,
+        remainingSeconds: ttl,
+        chirpMinFreq: data.chirpMinFreq ?? DEFAULT_CHIRP_MIN_FREQ,
+        chirpMaxFreq: data.chirpMaxFreq ?? DEFAULT_CHIRP_MAX_FREQ,
+      });
     }
   }
 
