@@ -126,6 +126,23 @@
     .listen-status.detected{color:var(--success)}
     .listen-status.detected .dot{background:var(--success)}
 
+    .us-debug{
+      text-align:left;
+      font-family:'Courier New',monospace;
+      font-size:.72rem;
+      color:var(--text-dim);
+      background:rgba(255,255,255,.02);
+      border:1px solid var(--border);
+      border-radius:.6rem;
+      padding:.55rem .65rem;
+      margin-top:.75rem;
+      width:100%;
+      max-width:420px;
+      line-height:1.35;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
     /* ── Result ── */
     .result-icon{
       width:100px;height:100px;border-radius:50%;
@@ -261,6 +278,7 @@
           <div class="detect-char" id="dc-5">_</div>
         </div>
         <div class="listen-status" id="listen-status"><span class="dot"></span> Listening for ultrasonic signal...</div>
+        <div class="us-debug hidden" id="us-debug">Debug panel will show FFT peaks here.</div>
       </div>
     </div>
 
@@ -536,6 +554,8 @@ function resetListenerUI() {
   if (viz) viz.classList.add('hidden');
   const btn = document.getElementById('listen-btn');
   if (btn) { btn.innerHTML = '&#127908; Start Listening'; btn.classList.remove('active'); btn.disabled = false; }
+  const dbg = document.getElementById('us-debug');
+  if (dbg) dbg.classList.add('hidden');
   updateDetectChars([], 'idle');
 }
 
@@ -574,6 +594,13 @@ async function startListening() {
   initFreqBars();
   document.getElementById('listen-viz').classList.remove('hidden');
 
+  const debugEl = document.getElementById('us-debug');
+  let lastDebugUpdate = 0;
+  if (debugEl) {
+    debugEl.classList.remove('hidden');
+    debugEl.textContent = 'Starting AudioContext...';
+  }
+
   const freqData = new Float32Array(usAnalyser.frequencyBinCount);
   const sr = usAudioCtx.sampleRate;
   const binW = sr / US_FFT;
@@ -606,6 +633,18 @@ async function startListening() {
     const now = Date.now();
 
     updateFreqBars(freqData, binW);
+
+    if (debugEl && now - lastDebugUpdate >= 200) {
+      lastDebugUpdate = now;
+      const fmt = (v) => (Number.isFinite(v) ? v.toFixed(1) : String(v));
+      debugEl.textContent =
+        'state=' + state + '\n' +
+        'sr=' + fmt(sr) + 'Hz binW=' + fmt(binW) + 'Hz\n' +
+        'pre=' + fmt(pre.freq) + 'Hz p=' + fmt(pre.power) + 'dB (' + (pre.power > US_POWER_THRESH ? 'ABOVE' : 'below') + ')\n' +
+        'dat=' + fmt(dat.freq) + 'Hz p=' + fmt(dat.power) + 'dB (' + (dat.power > US_POWER_THRESH ? 'ABOVE' : 'below') + ')\n' +
+        'preambleFrames=' + preambleFrames + ' silenceAfterPre=' + silenceAfterPre + ' inTone=' + (inTone ? '1' : '0') + '\n' +
+        'chars=' + chars.length + '/6 threshold=' + US_POWER_THRESH + 'dB';
+    }
 
     if (state !== 'IDLE' && now - lastEvent > 8000) {
       resetState();
