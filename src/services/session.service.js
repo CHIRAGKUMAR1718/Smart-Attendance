@@ -8,16 +8,21 @@ const fail = (status, message) => {
   throw err;
 };
 
-const ensureTable = db.query(`
-  CREATE TABLE IF NOT EXISTS sessions (
-    id VARCHAR(100) PRIMARY KEY,
-    class_id TEXT NOT NULL,
-    code VARCHAR(6) NOT NULL,
-    teacher_id VARCHAR(100) NOT NULL,
-    duration INTEGER NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`).catch(() => {});
+let tableReady = false;
+const ensureTable = async () => {
+  if (tableReady) return;
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id VARCHAR(100) PRIMARY KEY,
+      class_id TEXT NOT NULL,
+      code VARCHAR(6) NOT NULL,
+      teacher_id VARCHAR(100) NOT NULL,
+      duration INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  tableReady = true;
+};
 
 const generateCode = () => {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -42,7 +47,7 @@ export const createSession = async ({ classId, duration, teacherId }) => {
   await redis.set(`chirp:session:${sessionId}`, JSON.stringify({ classId, teacherId, code }), "EX", dur);
   await redis.set(`chirp:code:${code}`, sessionId, "EX", dur);
 
-  await ensureTable;
+  await ensureTable();
   await db.query(
     `INSERT INTO sessions (id, class_id, code, teacher_id, duration) VALUES ($1,$2,$3,$4,$5)
      ON CONFLICT (id) DO NOTHING`,
@@ -64,7 +69,7 @@ export const getSessionByCode = async (code) => {
 };
 
 export const getSessionHistory = async (teacherId) => {
-  await ensureTable;
+  await ensureTable();
   const result = await db.query(
     `SELECT s.id, s.class_id, s.code, s.duration, s.created_at,
             COUNT(ar.id)::int AS student_count

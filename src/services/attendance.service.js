@@ -20,10 +20,15 @@ export const markStudentAttendance = async (sessionId, studentId) => {
 
   await redis.set(dedupeKey, "1", "EX", 120);
 
-  await db.query(
-    "INSERT INTO attendance_records(session_id, student_id) VALUES ($1,$2)",
-    [sessionId, studentId]
-  );
+  try {
+    await db.query(
+      "INSERT INTO attendance_records(session_id, student_id) VALUES ($1,$2)",
+      [sessionId, studentId]
+    );
+  } catch (e) {
+    if (e && e.code === "23505") fail(409, "Already marked");
+    throw e;
+  }
 };
 
 export const listAttendance = async ({ limit = 50, offset = 0 } = {}) => {
@@ -78,8 +83,10 @@ export const listAttendanceByStudent = async ({ studentId, limit = 50, offset = 
   const safeOffset = Math.max(0, Number(offset) || 0);
 
   const result = await db.query(
-    `SELECT ar.id, ar.session_id, ar.student_id, ar.timestamp
+    `SELECT ar.id, ar.session_id, ar.student_id, ar.timestamp,
+            s.class_id, s.code AS session_code
      FROM attendance_records ar
+     LEFT JOIN sessions s ON ar.session_id = s.id
      WHERE ar.student_id = $1
      ORDER BY ar.id DESC
      LIMIT $2 OFFSET $3`,

@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <title>SMAT - Student</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -55,8 +57,6 @@
     .btn-primary{background:var(--success);color:#fff}
     .btn-primary:hover{background:#34d399;transform:translateY(-1px)}
     .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
-    .btn-ghost{background:none;color:var(--text-muted);border:1px solid var(--border)}
-    .btn-ghost:hover{background:var(--surface-hover)}
     .error-msg{color:var(--error);font-size:.8125rem;margin-top:.75rem;text-align:center}
 
     /* ── Header ── */
@@ -81,40 +81,52 @@
     .card{background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem}
     .card-header{font-weight:700;margin-bottom:1rem;font-size:1rem}
 
-    /* Code input */
-    .code-input-wrap{text-align:center;margin-bottom:1.5rem}
-    .code-input{
-      width:100%;max-width:320px;padding:1rem;border-radius:.75rem;
-      border:2px solid var(--border);background:rgba(255,255,255,.04);
-      color:var(--text);font-family:'Courier New',monospace;
-      font-size:1.75rem;font-weight:800;letter-spacing:.4em;text-align:center;
-      text-transform:uppercase;outline:none;transition:border-color .2s;
+    /* ── Ultrasonic Listener ── */
+    .sonic-card{border-color:rgba(99,102,241,.2);background:rgba(99,102,241,.04)}
+    .btn-listen{
+      width:100%;padding:1rem;border-radius:.75rem;border:2px solid rgba(99,102,241,.3);
+      background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));
+      color:var(--primary-light);font-family:inherit;font-size:1.125rem;font-weight:700;
+      cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:.75rem;
     }
-    .code-input:focus{border-color:var(--success)}
-    .code-input::placeholder{color:var(--text-dim);letter-spacing:.15em;font-size:1rem;font-weight:400}
+    .btn-listen:hover{background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.2));transform:translateY(-1px)}
+    .btn-listen.active{border-color:var(--success);background:rgba(16,185,129,.08);color:var(--success)}
+    .btn-listen:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
-    .or-divider{
-      display:flex;align-items:center;gap:1rem;margin:1.25rem 0;color:var(--text-dim);font-size:.75rem;
-    }
-    .or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+    .listen-viz{margin-top:1.25rem;text-align:center}
+    .freq-bars{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:60px;margin-bottom:1rem}
+    .freq-bar{width:4px;background:var(--border);border-radius:2px;transition:height .08s ease;min-height:4px}
 
-    .btn-scan{
-      width:100%;padding:.75rem;border-radius:.75rem;border:1px solid var(--border);
-      background:none;color:var(--text-muted);font-family:inherit;font-size:.875rem;
-      font-weight:600;cursor:pointer;transition:all .2s;
+    .detect-progress{display:flex;justify-content:center;gap:.5rem;margin-bottom:1rem}
+    .detect-char{
+      width:40px;height:48px;border-radius:.5rem;border:2px solid var(--border);
+      background:rgba(255,255,255,.03);display:flex;align-items:center;justify-content:center;
+      font-family:'Courier New',monospace;font-size:1.25rem;font-weight:800;
+      color:var(--text-dim);transition:all .3s;
     }
-    .btn-scan:hover{background:var(--surface-hover);color:var(--text)}
+    .detect-char.filled{
+      border-color:var(--primary);color:var(--primary-light);
+      background:rgba(99,102,241,.1);animation:charPop .3s ease;
+    }
+    .detect-char.complete{
+      border-color:var(--success);color:var(--success);
+      background:rgba(16,185,129,.1);
+    }
+    @keyframes charPop{0%{transform:scale(.8)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 
-    #qr-reader{
-      width:100%;max-width:320px;margin:1rem auto;border-radius:.75rem;overflow:hidden;
-      border:1px solid var(--border);
+    .listen-status{
+      font-size:.8125rem;font-weight:600;color:var(--text-muted);
+      display:flex;align-items:center;justify-content:center;gap:.5rem;
     }
+    .listen-status .dot{
+      width:8px;height:8px;border-radius:50%;background:var(--primary);
+      animation:blink 1.5s ease-in-out infinite;
+    }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .listen-status.detected{color:var(--success)}
+    .listen-status.detected .dot{background:var(--success)}
 
     /* ── Result ── */
-    .result-screen{
-      min-height:100vh;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;padding:2rem;text-align:center;
-    }
     .result-icon{
       width:100px;height:100px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
@@ -143,10 +155,8 @@
     .hi-time{color:var(--text-muted)}
     .empty{text-align:center;color:var(--text-dim);padding:2rem;font-size:.875rem}
 
-    /* Signal received animation */
-    .signal-received{
-      position:relative;width:120px;height:120px;margin:0 auto 1.5rem;
-    }
+    /* ── Signal receiving animation ── */
+    .signal-received{position:relative;width:120px;height:120px;margin:0 auto 1.5rem}
     .sr-ring{
       position:absolute;top:50%;left:50%;
       border:2px solid var(--success);border-radius:50%;
@@ -165,55 +175,11 @@
       background:var(--success);display:flex;align-items:center;justify-content:center;
       font-size:1.25rem;z-index:5;box-shadow:0 0 30px rgba(16,185,129,.3);
     }
-
-    /* ── Loading ── */
     .loader{
       width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--success);
       border-radius:50%;animation:spin .8s linear infinite;margin:2rem auto;
     }
     @keyframes spin{to{transform:rotate(360deg)}}
-
-    /* ── Listen mode ── */
-    .listen-card{border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.04)}
-    .btn-listen{
-      width:100%;padding:1rem;border-radius:.75rem;border:2px solid rgba(139,92,246,.3);
-      background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(99,102,241,.12));
-      color:#c4b5fd;font-family:inherit;font-size:1.125rem;font-weight:700;
-      cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:.75rem;
-    }
-    .btn-listen:hover{background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(99,102,241,.2));transform:translateY(-1px)}
-    .btn-listen.active{
-      border-color:var(--success);background:rgba(16,185,129,.08);color:var(--success);
-      animation:listen-glow 2s ease-in-out infinite;
-    }
-    @keyframes listen-glow{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}50%{box-shadow:0 0 20px rgba(16,185,129,.15)}}
-    .listen-viz{margin-top:1rem;text-align:center}
-    .freq-canvas{width:100%;height:60px;border-radius:.5rem;background:rgba(0,0,0,.3)}
-    .listen-status{
-      margin-top:.75rem;font-size:.8125rem;font-weight:600;color:var(--text-muted);
-      display:flex;align-items:center;justify-content:center;gap:.5rem;
-    }
-    .listen-status .dot{
-      width:8px;height:8px;border-radius:50%;background:var(--text-dim);
-      animation:blink 1.5s ease-in-out infinite;
-    }
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-    .listen-status.detected{color:var(--success)}
-    .listen-status.detected .dot{background:var(--success)}
-    .signal-meter{
-      display:flex;align-items:flex-end;gap:2px;justify-content:center;
-      height:20px;margin-top:.5rem;
-    }
-    .signal-meter span{
-      width:4px;border-radius:2px;background:var(--border);transition:height .15s,background .15s;
-    }
-    .detected-code{
-      margin-top:.75rem;padding:.5rem 1rem;border-radius:.5rem;
-      background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);
-      font-family:'Courier New',monospace;font-size:1.25rem;font-weight:800;
-      letter-spacing:.2em;color:var(--success);
-    }
-    .listen-hint{font-size:.75rem;color:var(--text-dim);margin-top:.5rem}
 
     /* ── Toast ── */
     .toast{
@@ -229,7 +195,7 @@
     @media(max-width:480px){
       .auth-card{padding:1.75rem 1.25rem}
       .dashboard{padding-left:1rem;padding-right:1rem}
-      .code-input{font-size:1.5rem;letter-spacing:.3em}
+      .detect-char{width:34px;height:42px;font-size:1.1rem}
     }
   </style>
 </head>
@@ -275,40 +241,27 @@
   </div>
   <div class="dashboard">
     <div class="dash-title">Mark Attendance</div>
-    <div class="dash-sub">Enter the signal code from your teacher</div>
+    <div class="dash-sub">Listen for your teacher's ultrasonic signal</div>
 
-    <div class="card listen-card">
-      <div class="card-header">&#127925; Auto-Detect Ultrasonic Signal</div>
+    <div class="card sonic-card">
+      <div class="card-header">&#127925; Ultrasonic Signal Listener</div>
       <p style="font-size:.8125rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
-        Your teacher is broadcasting an ultrasonic chirp. Tap below to listen &mdash; attendance will be marked automatically.
+        Your device microphone will pick up the inaudible ultrasonic signal from your teacher's device.
+        Make sure you are in the classroom.
       </p>
       <button class="btn-listen" id="listen-btn">&#127908; Start Listening</button>
       <div class="listen-viz hidden" id="listen-viz">
-        <canvas class="freq-canvas" id="freq-canvas" height="60"></canvas>
-        <div class="signal-meter" id="signal-meter">
-          <span style="height:4px"></span><span style="height:6px"></span><span style="height:8px"></span>
-          <span style="height:10px"></span><span style="height:12px"></span>
+        <div class="freq-bars" id="freq-bars"></div>
+        <div class="detect-progress" id="detect-progress">
+          <div class="detect-char" id="dc-0">_</div>
+          <div class="detect-char" id="dc-1">_</div>
+          <div class="detect-char" id="dc-2">_</div>
+          <div class="detect-char" id="dc-3">_</div>
+          <div class="detect-char" id="dc-4">_</div>
+          <div class="detect-char" id="dc-5">_</div>
         </div>
-        <div class="listen-status" id="listen-status"><span class="dot"></span> Listening for chirp...</div>
-        <div class="detected-code hidden" id="detected-code"></div>
-        <div class="listen-hint">Keep your device near the teacher's speaker</div>
-        <div id="listen-log" style="margin-top:.75rem;padding:.5rem;border-radius:.5rem;background:rgba(0,0,0,.4);font-family:monospace;font-size:.65rem;color:var(--text-dim);max-height:100px;overflow-y:auto;white-space:pre-wrap"></div>
+        <div class="listen-status" id="listen-status"><span class="dot"></span> Listening for ultrasonic signal...</div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">&#9997; Enter Code Manually</div>
-      <form id="code-form">
-        <div class="code-input-wrap">
-          <input class="code-input" type="text" id="code-input" maxlength="6"
-                 placeholder="CODE" autocomplete="off" spellcheck="false" required>
-        </div>
-        <button type="submit" class="btn btn-primary" id="mark-btn">Mark Attendance</button>
-      </form>
-
-      <div class="or-divider">or</div>
-      <button class="btn-scan" id="scan-btn">&#128247; Scan QR Code</button>
-      <div id="qr-reader" class="hidden"></div>
     </div>
 
     <div class="card">
@@ -324,7 +277,7 @@
     <div class="sr-ring"></div><div class="sr-ring"></div><div class="sr-ring"></div>
     <div class="sr-center">&#128225;</div>
   </div>
-  <div style="color:var(--text-muted);font-size:.9375rem">Receiving signal &amp; marking attendance...</div>
+  <div style="color:var(--text-muted);font-size:.9375rem">Signal received &mdash; marking attendance...</div>
   <div class="loader"></div>
 </section>
 
@@ -344,7 +297,6 @@ const API = window.location.origin;
 let accessToken = localStorage.getItem('s_access') || '';
 let refreshToken = localStorage.getItem('s_refresh') || '';
 let userEmail = localStorage.getItem('s_email') || '';
-let qrScanner = null;
 
 /* ── Helpers ── */
 async function api(path, opts = {}) {
@@ -429,36 +381,22 @@ document.getElementById('auth-form').addEventListener('submit', async e => {
 /* ── Dashboard ── */
 function enterDashboard() {
   document.getElementById('user-email').textContent = userEmail;
-  document.getElementById('code-input').value = '';
   show('dash-screen');
+  resetListenerUI();
   loadHistory();
-
-  const params = new URLSearchParams(window.location.search);
-  const codeFromUrl = params.get('code');
-  if (codeFromUrl) {
-    document.getElementById('code-input').value = codeFromUrl;
-    window.history.replaceState({}, '', '/student.html');
-    submitCode(codeFromUrl);
-  }
 }
 
 document.getElementById('logout-btn').addEventListener('click', logout);
 function logout() {
-  if (isListening) { receiver.stop(); isListening = false; }
+  stopListening();
   accessToken = ''; refreshToken = ''; userEmail = '';
   localStorage.removeItem('s_access'); localStorage.removeItem('s_refresh'); localStorage.removeItem('s_email');
   show('auth-screen');
 }
 
-/* ── Mark Attendance ── */
-document.getElementById('code-form').addEventListener('submit', e => {
-  e.preventDefault();
-  const code = document.getElementById('code-input').value.trim().toUpperCase();
-  if (code.length < 4) { toast('Enter a valid code', 'error'); return; }
-  submitCode(code);
-});
-
+/* ── Submit attendance code ── */
 async function submitCode(code) {
+  stopListening();
   show('loading-screen');
   try {
     const lookupRes = await api(`/sessions/code/${encodeURIComponent(code)}`);
@@ -494,295 +432,288 @@ function showResult(type, title, sub) {
 
 document.getElementById('result-back').addEventListener('click', () => enterDashboard());
 
-/* ── Audio Chirp Receiver ── */
-const receiver = {
-  CHARS: "ABCDEFGHJKMNPQRSTUVWXYZ23456789",
-  SYNC: 12000,
-  BASE: 12300,
-  STEP: 80,
-  FFT: 8192,
-  THRESH: 20,
-  ctx: null, analyser: null, stream: null, listening: false,
-  onDecode: null,
+/* ══════════════════════════════════════════════
+   ── Ultrasonic Signal Receiver ──
+   ══════════════════════════════════════════════ */
+const US_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const US_PREAMBLE = 17800;
+const US_BASE = 18000;
+const US_STEP = 55;
+const US_FFT = 8192;
+const US_POWER_THRESH = -70;
+const US_POLL_MS = 30;
 
-  async start(onDecode) {
-    this.onDecode = onDecode;
-    this.confirmed = false;
-    this.decoded = [];
-    this.toneBuffer = [];
-    this.inTone = false;
-    this.toneFrames = 0;
-    this.freqAccum = [];
-    this.silenceFrames = 0;
-    this.logLines = [];
+let usAudioCtx = null;
+let usAnalyser = null;
+let usMicStream = null;
+let usListenTimer = null;
+let usListening = false;
 
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await this.ctx.resume();
-    const rate = this.ctx.sampleRate;
-    this._log('AudioContext ready. sampleRate=' + rate);
+function usFreqToChar(freq) {
+  const idx = Math.round((freq - US_BASE) / US_STEP);
+  if (idx < 0 || idx >= US_CHARSET.length) return null;
+  const snapped = US_BASE + idx * US_STEP;
+  if (Math.abs(freq - snapped) > US_STEP * 0.45) return null;
+  return US_CHARSET[idx];
+}
 
-    this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = this.FFT;
-    this.analyser.smoothingTimeConstant = 0.2;
-    this.stream = await navigator.mediaDevices.getUserMedia({
+function usPeakInRange(data, binW, minF, maxF) {
+  const lo = Math.max(0, Math.floor(minF / binW));
+  const hi = Math.min(data.length - 1, Math.ceil(maxF / binW));
+  let best = -Infinity, bestBin = lo;
+  for (let i = lo; i <= hi; i++) {
+    if (data[i] > best) { best = data[i]; bestBin = i; }
+  }
+  if (bestBin > lo && bestBin < hi) {
+    const a = data[bestBin - 1], b = data[bestBin], c = data[bestBin + 1];
+    const denom = a - 2 * b + c;
+    if (Math.abs(denom) > 0.001) {
+      const delta = 0.5 * (a - c) / denom;
+      return { freq: (bestBin + delta) * binW, power: best };
+    }
+  }
+  return { freq: bestBin * binW, power: best };
+}
+
+function initFreqBars() {
+  const container = document.getElementById('freq-bars');
+  container.innerHTML = '';
+  for (let i = 0; i < 28; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'freq-bar';
+    bar.style.height = '4px';
+    container.appendChild(bar);
+  }
+}
+
+function updateFreqBars(data, binW) {
+  const bars = document.querySelectorAll('.freq-bar');
+  if (!bars.length) return;
+  const startBin = Math.floor(17500 / binW);
+  const endBin = Math.ceil(20500 / binW);
+  const totalBins = endBin - startBin;
+  const binsPerBar = Math.max(1, Math.floor(totalBins / bars.length));
+
+  bars.forEach((bar, i) => {
+    let peak = -100;
+    for (let b = 0; b < binsPerBar; b++) {
+      const bin = startBin + i * binsPerBar + b;
+      if (bin < data.length && data[bin] > peak) peak = data[bin];
+    }
+    const h = Math.max(4, Math.min(60, (peak + 100) * 0.85));
+    bar.style.height = h + 'px';
+    bar.style.background = peak > US_POWER_THRESH ? 'var(--primary-light)' : 'rgba(255,255,255,.08)';
+  });
+}
+
+function updateDetectChars(chars, state) {
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById('dc-' + i);
+    if (i < chars.length) {
+      el.textContent = chars[i];
+      el.className = 'detect-char ' + (state === 'complete' ? 'complete' : 'filled');
+    } else {
+      el.textContent = '_';
+      el.className = 'detect-char';
+    }
+  }
+
+  const status = document.getElementById('listen-status');
+  if (state === 'complete') {
+    status.className = 'listen-status detected';
+    status.innerHTML = '<span class="dot"></span> Signal decoded! Marking attendance...';
+  } else if (state === 'preamble' || state === 'receiving') {
+    status.className = 'listen-status detected';
+    status.innerHTML = '<span class="dot"></span> Signal detected! Decoding...';
+  } else {
+    status.className = 'listen-status';
+    status.innerHTML = '<span class="dot"></span> Listening for ultrasonic signal...';
+  }
+}
+
+function resetListenerUI() {
+  const viz = document.getElementById('listen-viz');
+  if (viz) viz.classList.add('hidden');
+  const btn = document.getElementById('listen-btn');
+  if (btn) { btn.innerHTML = '&#127908; Start Listening'; btn.classList.remove('active'); btn.disabled = false; }
+  updateDetectChars([], 'idle');
+}
+
+async function startListening() {
+  if (!window.isSecureContext) {
+    toast('Microphone requires HTTPS — use localhost or a secure origin', 'error');
+    resetListenerUI();
+    return;
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('Microphone API not available in this browser', 'error');
+    resetListenerUI();
+    return;
+  }
+
+  try {
+    usAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (usAudioCtx.state === 'suspended') await usAudioCtx.resume();
+    usMicStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     });
-    this.ctx.createMediaStreamSource(this.stream).connect(this.analyser);
+  } catch (err) {
+    toast('Microphone access denied — please allow microphone permission', 'error');
+    if (usAudioCtx) { usAudioCtx.close().catch(() => {}); usAudioCtx = null; }
+    resetListenerUI();
+    return;
+  }
 
-    this.binW = rate / this.FFT;
-    this.minBin = Math.floor(11000 / this.binW);
-    this.maxBin = Math.ceil(15500 / this.binW);
-    this._log('Bin width=' + this.binW.toFixed(2) + 'Hz, scanning bins ' + this.minBin + '-' + this.maxBin);
-    this._log('Sync=' + this.SYNC + 'Hz, Base=' + this.BASE + 'Hz, Step=' + this.STEP + 'Hz');
-    this.listening = true;
-    this._poll();
-  },
+  const source = usAudioCtx.createMediaStreamSource(usMicStream);
+  usAnalyser = usAudioCtx.createAnalyser();
+  usAnalyser.fftSize = US_FFT;
+  usAnalyser.smoothingTimeConstant = 0.15;
+  source.connect(usAnalyser);
 
-  _poll() {
-    if (!this.listening) return;
-    const data = new Uint8Array(this.analyser.frequencyBinCount);
-    this.analyser.getByteFrequencyData(data);
+  initFreqBars();
+  document.getElementById('listen-viz').classList.remove('hidden');
 
-    let peak = 0, peakBin = 0;
-    for (let i = this.minBin; i <= this.maxBin; i++) {
-      if (data[i] > peak) { peak = data[i]; peakBin = i; }
+  const freqData = new Float32Array(usAnalyser.frequencyBinCount);
+  const sr = usAudioCtx.sampleRate;
+  const binW = sr / US_FFT;
+  const maxDataFreq = US_BASE + (US_CHARSET.length - 1) * US_STEP + US_STEP * 0.6;
+
+  let state = 'IDLE';
+  let preambleFrames = 0;
+  let silenceAfterPre = 0;
+  let chars = [];
+  let toneReadings = [];
+  let inTone = false;
+  let gapFrames = 0;
+  let lastEvent = Date.now();
+  let codeSubmitted = false;
+
+  function resetState() {
+    state = 'IDLE'; preambleFrames = 0; silenceAfterPre = 0;
+    chars = []; toneReadings = []; inTone = false; gapFrames = 0;
+    updateDetectChars([], 'idle');
+  }
+
+  usListening = true;
+
+  usListenTimer = setInterval(() => {
+    if (!usListening || codeSubmitted || !usAnalyser) return;
+    usAnalyser.getFloatFrequencyData(freqData);
+
+    const pre = usPeakInRange(freqData, binW, US_PREAMBLE - 50, US_PREAMBLE + 50);
+    const dat = usPeakInRange(freqData, binW, US_BASE - US_STEP * 0.4, maxDataFreq);
+    const now = Date.now();
+
+    updateFreqBars(freqData, binW);
+
+    if (state !== 'IDLE' && now - lastEvent > 8000) {
+      resetState();
+      return;
     }
-    const freq = peakBin * this.binW;
 
-    this._drawViz(data, peak, freq);
+    switch (state) {
+      case 'IDLE':
+        if (pre.power > US_POWER_THRESH) {
+          preambleFrames++;
+          if (preambleFrames >= 4) {
+            state = 'AFTER_PRE'; silenceAfterPre = 0; chars = [];
+            toneReadings = []; inTone = false; gapFrames = 0;
+            lastEvent = now;
+            updateDetectChars([], 'preamble');
+          }
+        } else {
+          preambleFrames = Math.max(0, preambleFrames - 1);
+        }
+        break;
 
-    if (peak > this.THRESH) {
-      if (!this.inTone) {
-        this.inTone = true;
-        this.toneFrames = 0;
-        this.freqAccum = [];
-      }
-      this.toneFrames++;
-      this.freqAccum.push(freq);
-      this.silenceFrames = 0;
-    } else {
-      if (this.inTone && this.toneFrames >= 2) {
-        this.freqAccum.sort((a, b) => a - b);
-        const medianFreq = this.freqAccum[Math.floor(this.freqAccum.length / 2)];
-        const tone = this._toTone(medianFreq);
-        const label = tone === -2 ? 'SYNC' : tone === -1 ? '?' : this.CHARS[tone];
-        this._log('Tone: ' + Math.round(medianFreq) + 'Hz → ' + label + ' (frames=' + this.toneFrames + ', amp=' + peak + ')');
-        this._recordTone(tone);
-      }
-      this.inTone = false;
-      this.toneFrames = 0;
-      this.silenceFrames++;
-      if (this.silenceFrames > 50 && this.toneBuffer.length > 0) {
-        this._tryDecode();
-        this.toneBuffer = [];
-      }
-    }
-    requestAnimationFrame(() => this._poll());
-  },
+      case 'AFTER_PRE':
+        if (pre.power < US_POWER_THRESH - 5) {
+          silenceAfterPre++;
+          if (silenceAfterPre >= 2) {
+            state = 'RECV'; inTone = false; toneReadings = []; gapFrames = 0;
+            lastEvent = now;
+          }
+        } else {
+          lastEvent = now;
+        }
+        break;
 
-  _toTone(freq) {
-    if (Math.abs(freq - this.SYNC) < 50) return -2;
-    const idx = Math.round((freq - this.BASE) / this.STEP);
-    if (idx >= 0 && idx < this.CHARS.length) {
-      if (Math.abs(freq - (this.BASE + idx * this.STEP)) < 35) return idx;
-    }
-    return -1;
-  },
+      case 'RECV': {
+        const preStrong = pre.power > US_POWER_THRESH;
+        const datStrong = dat.power > US_POWER_THRESH;
 
-  _recordTone(tone) {
-    if (tone === -1) return;
-    if (tone === -2) {
-      this._tryDecode();
-      this.toneBuffer = [];
-    }
-    this.toneBuffer.push(tone);
-    const labels = this.toneBuffer.map(t => t === -2 ? 'S' : t >= 0 ? this.CHARS[t] : '?');
-    document.getElementById('listen-status').innerHTML =
-      '<span class="dot"></span> Buffer: [' + labels.join(', ') + ']';
-    if (this.toneBuffer.length > 15) this.toneBuffer = this.toneBuffer.slice(-15);
-  },
+        const isData = datStrong && dat.power > pre.power - 6;
+        const isPre = preStrong && pre.power > dat.power + 6;
 
-  _tryDecode() {
-    if (this.confirmed) return;
-    const buf = this.toneBuffer;
-    for (let i = buf.length - 1; i >= 0; i--) {
-      if (buf[i] === -2) {
-        const data = buf.slice(i + 1);
-        if (data.length >= 6) {
-          const chars = data.slice(0, 6);
-          if (chars.every(t => t >= 0 && t < this.CHARS.length)) {
-            const code = chars.map(t => this.CHARS[t]).join('');
-            this.decoded.push(code);
-            this._log('DECODED: ' + code + ' (attempt #' + this.decoded.length + ')');
-
-            const codeEl = document.getElementById('detected-code');
-            const statusEl = document.getElementById('listen-status');
-            codeEl.textContent = code;
-            codeEl.classList.remove('hidden');
-
-            const count = this.decoded.filter(c => c === code).length;
-            if (count >= 2) {
-              this.confirmed = true;
-              statusEl.innerHTML = '<span class="dot"></span> Signal decoded!';
-              statusEl.className = 'listen-status detected';
-              this._log('CONFIRMED: ' + code);
-              if (this.onDecode) this.onDecode(code);
-            } else {
-              statusEl.innerHTML = '<span class="dot"></span> Verifying (' + count + '/2)...';
+        if (isData && !isPre) {
+          if (!inTone) { inTone = true; toneReadings = []; gapFrames = 0; }
+          toneReadings.push(dat.freq);
+          lastEvent = now;
+        } else {
+          if (inTone && toneReadings.length >= 2) {
+            toneReadings.sort((a, b) => a - b);
+            const median = toneReadings[Math.floor(toneReadings.length / 2)];
+            const ch = usFreqToChar(median);
+            if (ch) {
+              chars.push(ch);
+              updateDetectChars(chars, 'receiving');
             }
-            return;
+            toneReadings = []; inTone = false;
+            lastEvent = now;
+
+            if (chars.length >= 6) {
+              codeSubmitted = true;
+              const code = chars.join('');
+              updateDetectChars(chars, 'complete');
+              toast('Ultrasonic signal decoded: ' + code);
+              setTimeout(() => submitCode(code), 400);
+              return;
+            }
+          } else if (inTone) {
+            gapFrames++;
+            if (gapFrames >= 3) {
+              toneReadings = []; inTone = false; gapFrames = 0;
+            }
+          }
+
+          if (isPre && chars.length === 0) {
+            state = 'AFTER_PRE'; silenceAfterPre = 0;
+            toneReadings = []; inTone = false; gapFrames = 0;
+            lastEvent = now;
           }
         }
         break;
       }
     }
-  },
+  }, US_POLL_MS);
+}
 
-  _drawViz(data, peak, freq) {
-    const canvas = document.getElementById('freq-canvas');
-    if (!canvas) return;
-    const c = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.width = canvas.clientWidth * dpr;
-    const h = canvas.height = 70 * dpr;
-    c.clearRect(0, 0, w, h);
+function stopListening() {
+  usListening = false;
+  if (usListenTimer) { clearInterval(usListenTimer); usListenTimer = null; }
+  if (usMicStream) { usMicStream.getTracks().forEach(t => t.stop()); usMicStream = null; }
+  if (usAudioCtx) { usAudioCtx.close().catch(() => {}); usAudioCtx = null; }
+  usAnalyser = null;
+}
 
-    const range = this.maxBin - this.minBin;
-    const barW = Math.max(1, w / range);
-    for (let i = 0; i < range; i++) {
-      const val = data[this.minBin + i] / 255;
-      const barH = val * h * 0.8;
-      c.fillStyle = val > this.THRESH / 255
-        ? `rgba(16,185,129,${0.3 + val * 0.7})`
-        : `rgba(148,163,184,${0.1 + val * 0.2})`;
-      c.fillRect(i * barW, h - barH, barW - 1, barH);
-    }
-
-    c.fillStyle = 'rgba(255,255,255,0.85)';
-    c.font = `bold ${11 * dpr}px monospace`;
-    const txt = `Peak: ${Math.round(freq)}Hz  Amp: ${peak}  ${peak > this.THRESH ? 'SIGNAL' : 'quiet'}`;
-    c.fillText(txt, 4 * dpr, 13 * dpr);
-
-    const meter = document.getElementById('signal-meter');
-    if (meter) {
-      const bars = meter.children;
-      const norm = Math.min(peak / 100, 1);
-      for (let i = 0; i < bars.length; i++) {
-        const t = (i + 1) / bars.length;
-        bars[i].style.height = (4 + i * 4) + 'px';
-        bars[i].style.background = norm >= t
-          ? (norm > 0.4 ? 'var(--success)' : 'var(--primary)')
-          : 'var(--border)';
-      }
-    }
-  },
-
-  _log(msg) {
-    const el = document.getElementById('listen-log');
-    if (!el) return;
-    this.logLines = this.logLines || [];
-    this.logLines.push(new Date().toLocaleTimeString() + ' ' + msg);
-    if (this.logLines.length > 20) this.logLines = this.logLines.slice(-20);
-    el.textContent = this.logLines.join('\n');
-    el.scrollTop = el.scrollHeight;
-  },
-
-  stop() {
-    this.listening = false;
-    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
-    if (this.ctx) { this.ctx.close(); this.ctx = null; }
-  }
-};
-
-let isListening = false;
+/* ── Listen button ── */
 document.getElementById('listen-btn').addEventListener('click', async () => {
-  if (isListening) {
-    receiver.stop();
-    isListening = false;
-    document.getElementById('listen-btn').innerHTML = '&#127908; Start Listening';
-    document.getElementById('listen-btn').classList.remove('active');
-    document.getElementById('listen-viz').classList.add('hidden');
+  if (usListening) {
+    stopListening();
+    resetListenerUI();
     return;
   }
-  try {
-    await receiver.start((code) => {
-      receiver.stop();
-      isListening = false;
-      document.getElementById('listen-btn').innerHTML = '&#127908; Start Listening';
-      document.getElementById('listen-btn').classList.remove('active');
-      toast('Signal decoded: ' + code);
-      submitCode(code);
-    });
-    isListening = true;
-    document.getElementById('listen-btn').innerHTML = '&#9209; Stop Listening';
-    document.getElementById('listen-btn').classList.add('active');
-    document.getElementById('listen-viz').classList.remove('hidden');
-    document.getElementById('detected-code').classList.add('hidden');
-    document.getElementById('listen-status').innerHTML = '<span class="dot"></span> Listening for chirp...';
-    document.getElementById('listen-status').className = 'listen-status';
-  } catch (e) {
-    toast('Microphone access denied', 'error');
+  const btn = document.getElementById('listen-btn');
+  btn.disabled = true;
+  btn.textContent = 'Requesting microphone...';
+  await startListening();
+  if (usListening) {
+    btn.disabled = false;
+    btn.innerHTML = '&#10006; Stop Listening';
+    btn.classList.add('active');
   }
 });
-
-/* ── QR Scanning ── */
-let scannerLoaded = false;
-document.getElementById('scan-btn').addEventListener('click', async () => {
-  const readerEl = document.getElementById('qr-reader');
-  if (!readerEl.classList.contains('hidden')) {
-    stopScanner();
-    return;
-  }
-  readerEl.classList.remove('hidden');
-  document.getElementById('scan-btn').textContent = '✕ Close Scanner';
-
-  if (!scannerLoaded) {
-    try {
-      await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
-      scannerLoaded = true;
-    } catch (_) {
-      toast('Could not load QR scanner', 'error');
-      stopScanner();
-      return;
-    }
-  }
-
-  try {
-    qrScanner = new Html5Qrcode('qr-reader');
-    await qrScanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      (text) => {
-        stopScanner();
-        let code = text;
-        try {
-          const url = new URL(text);
-          code = url.searchParams.get('code') || text;
-        } catch (_) {}
-        document.getElementById('code-input').value = code;
-        submitCode(code.toUpperCase());
-      }
-    );
-  } catch (err) {
-    toast('Camera access denied', 'error');
-    stopScanner();
-  }
-});
-
-function stopScanner() {
-  if (qrScanner) { qrScanner.stop().catch(() => {}); qrScanner = null; }
-  document.getElementById('qr-reader').classList.add('hidden');
-  document.getElementById('qr-reader').innerHTML = '';
-  document.getElementById('scan-btn').innerHTML = '&#128247; Scan QR Code';
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = resolve; s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
 
 /* ── History ── */
 async function loadHistory() {
@@ -793,7 +724,7 @@ async function loadHistory() {
     if (!rows.length) { el.innerHTML = '<div class="empty">No attendance records yet</div>'; return; }
     el.innerHTML = rows.map(r => `
       <div class="history-item">
-        <span class="hi-session">${r.session_id.slice(0, 8)}</span>
+        <span class="hi-session">${r.class_id || r.session_id.slice(0, 8)}</span>
         <span class="hi-time">${new Date(r.timestamp).toLocaleString()}</span>
       </div>`).join('');
   } catch (_) {}

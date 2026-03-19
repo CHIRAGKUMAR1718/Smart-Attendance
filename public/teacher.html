@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <title>SMAT - Teacher</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <!-- Ultrasonic signal broadcasting via Web Audio API -->
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     :root{
@@ -206,10 +208,15 @@
     }
     .sig-class{color:var(--text-muted);font-size:.875rem;margin-bottom:1.5rem}
 
-    .sig-qr{background:#fff;padding:.75rem;border-radius:.75rem;display:inline-block;margin-bottom:1.5rem}
-    .sig-qr canvas{display:block}
+    .sonic-label{
+      display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1.25rem;
+      border-radius:2rem;background:rgba(139,92,246,.12);color:#c4b5fd;
+      font-size:.8125rem;font-weight:600;margin-bottom:1rem;
+    }
+    .sonic-label svg{width:18px;height:18px;fill:currentColor}
+    .vol-hint{font-size:.75rem;color:var(--text-dim);margin-top:.25rem;margin-bottom:1rem}
 
-    .sig-timer{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:.5rem}
+    .sig-timer{font-size:2.75rem;font-weight:800;font-variant-numeric:tabular-nums;margin-bottom:.75rem;letter-spacing:.05em}
     .sig-timer.warn{color:var(--warn)}
     .sig-timer.critical{color:var(--error);animation:blink 1s ease-in-out infinite}
 
@@ -243,32 +250,6 @@
       font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;transition:all .2s;
     }
     .btn-back:hover{background:var(--surface-hover);color:var(--text)}
-
-    /* ── Chirp indicator ── */
-    .chirp-bar{
-      display:flex;align-items:center;gap:.75rem;padding:.6rem 1.25rem;
-      border-radius:.75rem;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.2);
-      margin-bottom:1.25rem;
-    }
-    .chirp-wave{display:flex;align-items:center;gap:3px;height:24px}
-    .chirp-wave span{
-      display:block;width:3px;border-radius:2px;background:#a78bfa;
-      animation:wave 1.2s ease-in-out infinite;
-    }
-    .chirp-wave span:nth-child(1){height:8px;animation-delay:0s}
-    .chirp-wave span:nth-child(2){height:16px;animation-delay:.1s}
-    .chirp-wave span:nth-child(3){height:24px;animation-delay:.2s}
-    .chirp-wave span:nth-child(4){height:16px;animation-delay:.3s}
-    .chirp-wave span:nth-child(5){height:8px;animation-delay:.4s}
-    @keyframes wave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
-    .chirp-label{font-size:.8125rem;font-weight:600;color:#a78bfa}
-    .chirp-toggle{
-      margin-left:auto;padding:.3rem .65rem;border-radius:.375rem;
-      border:1px solid rgba(139,92,246,.3);background:none;color:#a78bfa;
-      font-family:inherit;font-size:.7rem;font-weight:600;cursor:pointer;transition:all .2s;
-    }
-    .chirp-toggle:hover{background:rgba(139,92,246,.15)}
-    .chirp-toggle.muted{color:var(--text-dim);border-color:var(--border)}
 
     /* ── Toast ── */
     .toast{
@@ -375,7 +356,7 @@
 </section>
 
 <!-- ════════════ SIGNAL BROADCAST ════════════ -->
-<section id="signal-screen" class="signal-screen hidden">
+<section id="signal-screen" class="screen signal-screen hidden">
   <div class="signal-bg"></div>
   <div class="signal-content">
     <div class="signal-status"><span class="signal-dot"></span> Broadcasting</div>
@@ -388,18 +369,15 @@
     <div class="sig-code" id="sig-code"></div>
     <div class="sig-class" id="sig-class"></div>
 
-    <div class="chirp-bar" id="chirp-bar">
-      <div class="chirp-wave"><span></span><span></span><span></span><span></span><span></span></div>
-      <span class="chirp-label" id="chirp-label">Chirp active</span>
-      <button class="chirp-toggle" id="chirp-test" style="margin-left:auto">Test Sound</button>
-      <button class="chirp-toggle" id="chirp-toggle">Mute</button>
-    </div>
-    <div id="chirp-debug" style="font-size:.7rem;color:var(--text-dim);margin-bottom:1rem;font-family:monospace;text-align:left"></div>
-
-    <div class="sig-qr"><canvas id="qr-canvas"></canvas></div>
-
     <div class="sig-timer" id="sig-timer">--:--</div>
+
     <div class="sig-count"><span>&#9989;</span> <span id="sig-count-num">0</span> student(s) marked</div>
+
+    <div class="sonic-label">
+      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      Ultrasonic Signal Active
+    </div>
+    <div class="vol-hint">Ensure device volume is at maximum &mdash; students nearby will auto-detect</div>
 
     <div class="student-list" id="student-list"></div>
 
@@ -532,7 +510,6 @@ document.querySelectorAll('.dur-btn').forEach(btn => {
 /* Start session */
 document.getElementById('session-form').addEventListener('submit', async e => {
   e.preventDefault();
-  chirp.warmUp();
   const btn = document.getElementById('start-btn');
   btn.disabled = true; btn.textContent = 'Starting...';
   try {
@@ -685,118 +662,6 @@ function quickSearch(classId) {
   searchAttendance();
 }
 
-/* ── Audio Chirp Transmitter ── */
-const chirp = {
-  CHARS: "ABCDEFGHJKMNPQRSTUVWXYZ23456789",
-  SYNC: 12000,
-  BASE: 12300,
-  STEP: 80,
-  TONE_S: 0.25,
-  GAP_S: 0.10,
-  PAUSE_S: 1.5,
-  ctx: null, interval: null, muted: false, emitCount: 0,
-
-  warmUp() {
-    if (this.ctx && this.ctx.state !== 'closed') return;
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.ctx.resume();
-    this._log('AudioContext created, state=' + this.ctx.state + ', sampleRate=' + this.ctx.sampleRate);
-  },
-
-  start(code) {
-    this.code = code.toUpperCase();
-    this.emitCount = 0;
-    if (!this.ctx || this.ctx.state === 'closed') this.warmUp();
-    this.ctx.resume();
-    this.muted = false;
-    this._log('Starting chirp for code: ' + this.code);
-    this._logFreqs();
-    this._emit();
-    const slotS = this.TONE_S + this.GAP_S;
-    const cycleMs = ((1 + this.code.length) * slotS + this.PAUSE_S) * 1000;
-    this.interval = setInterval(() => this._emit(), cycleMs);
-    document.getElementById('chirp-toggle').textContent = 'Mute';
-    document.getElementById('chirp-toggle').classList.remove('muted');
-    document.getElementById('chirp-label').textContent = 'Chirp active — emitting...';
-  },
-
-  _logFreqs() {
-    const freqs = [this.SYNC + ' (sync)'];
-    for (const ch of this.code) {
-      const i = this.CHARS.indexOf(ch);
-      freqs.push((this.BASE + i * this.STEP) + ' (' + ch + ')');
-    }
-    this._log('Frequencies: ' + freqs.join(', '));
-  },
-
-  _emit() {
-    if (!this.ctx || this.muted) return;
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-    const slot = this.TONE_S + this.GAP_S;
-    let t = this.ctx.currentTime + 0.05;
-    this._tone(this.SYNC, t, this.TONE_S);
-    t += slot;
-    for (const ch of this.code) {
-      const i = this.CHARS.indexOf(ch);
-      if (i < 0) continue;
-      this._tone(this.BASE + i * this.STEP, t, this.TONE_S);
-      t += slot;
-    }
-    this.emitCount++;
-    document.getElementById('chirp-label').textContent =
-      'Chirp active — emit #' + this.emitCount + ' (ctx=' + this.ctx.state + ')';
-  },
-
-  _tone(freq, start, dur) {
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = 'sine';
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0, start);
-    g.gain.linearRampToValueAtTime(1.0, start + 0.008);
-    g.gain.setValueAtTime(1.0, start + dur - 0.008);
-    g.gain.linearRampToValueAtTime(0, start + dur);
-    o.connect(g);
-    g.connect(this.ctx.destination);
-    o.start(start);
-    o.stop(start + dur + 0.02);
-  },
-
-  testSound() {
-    if (!this.ctx || this.ctx.state === 'closed') this.warmUp();
-    this.ctx.resume();
-    const t = this.ctx.currentTime + 0.05;
-    this._tone(1000, t, 0.3);
-    this._tone(this.SYNC, t + 0.4, 0.5);
-    this._log('Test: 1kHz beep then ' + this.SYNC + 'Hz sync tone. If you hear nothing, check volume.');
-  },
-
-  toggle() {
-    this.muted = !this.muted;
-    if (!this.muted && this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-    const btn = document.getElementById('chirp-toggle');
-    btn.textContent = this.muted ? 'Unmute' : 'Mute';
-    btn.classList.toggle('muted', this.muted);
-    document.getElementById('chirp-label').textContent = this.muted ? 'Chirp muted' : 'Chirp active — emitting...';
-  },
-
-  stop() {
-    clearInterval(this.interval); this.interval = null;
-    if (this.ctx) { this.ctx.close(); this.ctx = null; }
-    this._log('Chirp stopped');
-  },
-
-  _log(msg) {
-    const el = document.getElementById('chirp-debug');
-    if (!el) return;
-    const line = new Date().toLocaleTimeString() + ' ' + msg;
-    el.textContent = line + '\n' + (el.textContent || '').split('\n').slice(0, 4).join('\n');
-  }
-};
-
-document.getElementById('chirp-toggle').addEventListener('click', () => chirp.toggle());
-document.getElementById('chirp-test').addEventListener('click', () => { chirp.warmUp(); chirp.testSound(); });
-
 /* ── Signal Broadcasting ── */
 function openSignal({ sessionId, code, classId, expiresIn }) {
   currentSession = { sessionId, code, classId };
@@ -807,13 +672,7 @@ function openSignal({ sessionId, code, classId, expiresIn }) {
   document.getElementById('sig-count-num').textContent = '0';
   document.getElementById('student-list').innerHTML = '';
 
-  const qrData = `${window.location.origin}/student.html?code=${code}`;
-  QRCode.toCanvas(document.getElementById('qr-canvas'), qrData, {
-    width: 180, margin: 0,
-    color: { dark: '#1e1b4b', light: '#ffffff' },
-  });
-
-  chirp.start(code);
+  startBroadcasting(code);
 
   let remaining = expiresIn;
   updateTimer(remaining);
@@ -860,10 +719,74 @@ async function pollAttendance() {
 
 document.getElementById('back-btn').addEventListener('click', goBackDash);
 function goBackDash() {
+  stopBroadcasting();
   clearInterval(timerInterval); clearInterval(pollInterval);
-  chirp.stop();
   currentSession = null;
   enterDashboard();
+}
+
+/* ── Ultrasonic Broadcasting ── */
+const US_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const US_PREAMBLE = 17800;
+const US_BASE = 18000;
+const US_STEP = 55;
+const US_TONE = 0.18;
+const US_GAP = 0.09;
+const US_PRE_DUR = 0.25;
+const US_PAUSE = 0.65;
+
+let usAudioCtx = null;
+let usBroadcastTimer = null;
+let usActive = false;
+
+function usCharFreq(ch) {
+  const idx = US_CHARSET.indexOf(ch.toUpperCase());
+  return idx >= 0 ? US_BASE + idx * US_STEP : -1;
+}
+
+function usEmit(freq, t, dur) {
+  if (freq < 0) return;
+  const osc = usAudioCtx.createOscillator();
+  const g = usAudioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  const ramp = 0.006;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.95, t + ramp);
+  g.gain.setValueAtTime(0.95, t + dur - ramp);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g);
+  g.connect(usAudioCtx.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+function usScheduleCycle(code) {
+  let t = usAudioCtx.currentTime + 0.05;
+  usEmit(US_PREAMBLE, t, US_PRE_DUR);
+  t += US_PRE_DUR + US_GAP;
+  for (const ch of code) {
+    usEmit(usCharFreq(ch), t, US_TONE);
+    t += US_TONE + US_GAP;
+  }
+  return (t - usAudioCtx.currentTime) * 1000 + US_PAUSE * 1000;
+}
+
+function startBroadcasting(code) {
+  if (usActive) stopBroadcasting();
+  usAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  usActive = true;
+  (function loop() {
+    if (!usActive) return;
+    const wait = usScheduleCycle(code);
+    usBroadcastTimer = setTimeout(loop, wait);
+  })();
+}
+
+function stopBroadcasting() {
+  usActive = false;
+  if (usBroadcastTimer) { clearTimeout(usBroadcastTimer); usBroadcastTimer = null; }
+  if (usAudioCtx) { usAudioCtx.close().catch(() => {}); usAudioCtx = null; }
 }
 
 /* ── Init ── */
