@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -11,9 +12,30 @@ const app = express();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Behind Vercel / proxies (needed for secure cookies / IP if you add them later) */
+if (process.env.VERCEL) {
+  app.set("trust proxy", 1);
+}
+
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "..", "public")));
+
+function resolvePublicDir() {
+  const candidates = [
+    path.join(__dirname, "..", "public"),
+    path.join(process.cwd(), "public"),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (fs.existsSync(dir)) return dir;
+    } catch {
+      /* ignore */
+    }
+  }
+  return path.join(process.cwd(), "public");
+}
+
+app.use(express.static(resolvePublicDir()));
 
 app.use("/auth", authRoutes);
 app.use("/sessions", sessionRoutes);

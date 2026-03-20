@@ -1,9 +1,18 @@
 import "./env.js";
 import Redis from "ioredis";
 
-const redis = new Redis(process.env.REDIS_URL, {
+const url = process.env.REDIS_URL || "";
+const isTls = url.startsWith("rediss://");
+
+const redis = new Redis(url, {
 	lazyConnect: true,
 	retryStrategy: (times) => Math.min(times * 1000, 30000),
+	maxRetriesPerRequest: 3,
+	...(isTls && {
+		tls: {
+			rejectUnauthorized: false,
+		},
+	}),
 });
 
 let lastErrorLogMs = 0;

@@ -1,0 +1,7 @@
+# Speed up uploads (not needed at runtime)
+SMAT_Study_Guide.pdf
+SMAT_Attendance_Presentation.pptx
+SMAT_Study_Guide.md
+create_presentation.py
+convert_to_pdf.py
+*.pptx
