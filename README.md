@@ -12,12 +12,12 @@ npm install
 
 2. Configure environment variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (see **`.env.example`**):
 
 - `PORT` (default 3000)
 - `JWT_SECRET` (required)
 - `REDIS_URL` (required)
-- `DB_URL` (required)
+- `DB_URL` (required) — on Vercel, Neon integration may set `POSTGRES_URL` / `DATABASE_URL` instead (supported automatically)
 
 3. Create database schema
 
@@ -63,54 +63,22 @@ docker compose down
 
 ## Deploy on Vercel (HTTPS for phones — recommended)
 
-This app runs as one **serverless Express** function (`api/index.js`) with `public/**` bundled so teacher/student pages and APIs share one deployment.
+This app runs as one **serverless Express** function (`api/index.js`) with `public/**` bundled.
 
-### 1. Create external services (Vercel does not include Postgres/Redis)
+**Full checklist (Neon + Upstash + env vars + SQL):** see **[`DEPLOY_VERCEL.md`](./DEPLOY_VERCEL.md)**.
 
-| Service | Free tier | What to copy |
-|--------|-----------|--------------|
-| **[Neon](https://neon.tech)** (Postgres) | Yes | Connection string → `DB_URL` |
-| **[Upstash](https://upstash.com)** (Redis) | Yes | **Redis** URL (starts with `rediss://`) → `REDIS_URL` |
+Quick summary:
 
-Run **`src/db/schema.sql`** in Neon’s SQL editor (same as local setup). Ensure `pgcrypto` extension if needed.
+1. Connect **[Neon from Vercel Marketplace](https://vercel.com/marketplace/neon)** *or* set **`DB_URL`** manually. The app also reads **`POSTGRES_URL`**, **`DATABASE_URL`**, **`POSTGRES_PRISMA_URL`**.
+2. Add **`REDIS_URL`** from [Upstash](https://upstash.com) (`rediss://…`) *or* **`UPSTASH_REDIS_URL`** if your integration sets that.
+3. Set **`JWT_SECRET`** (e.g. `openssl rand -hex 32`).
+4. Run **`src/db/schema.sql`** in Neon’s SQL editor once (`pgcrypto` extension if needed).
+5. Deploy from GitHub; use **`/teacher.html`** and **`/student.html`** on your `*.vercel.app` URL.
 
-### 2. Import project in Vercel
-
-1. Push this repo to GitHub.
-2. [Vercel Dashboard](https://vercel.com/new) → **Add New Project** → import the repo.
-3. **Environment variables** (Production + Preview):
-
-   | Name | Example |
-   |------|---------|
-   | `DB_URL` | `postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require` |
-   | `REDIS_URL` | `rediss://default:xxx@xxx.upstash.io:6379` |
-   | `JWT_SECRET` | Long random string (same idea as local `.env`) |
-
-   Do **not** commit `.env`.
-
-4. **Deploy**. Default **Build Command** can stay empty / `npm run vercel-build`; **Output** is handled by Vercel.
-
-### 3. URLs to use after deploy
-
-Replace `https://YOUR-PROJECT.vercel.app` with your real domain:
-
-- **Student:** `https://YOUR-PROJECT.vercel.app/student.html`
-- **Teacher:** `https://YOUR-PROJECT.vercel.app/teacher.html`
-- **Home:** `https://YOUR-PROJECT.vercel.app/`
-
-HTTPS is automatic — microphone + Web Audio work on real phones.
-
-### 4. Optional: test like production locally
-
-```bash
-npm install
-npx vercel dev
-```
-
-Uses your linked project env (after `vercel link`).
+Optional local prod-like run: `npx vercel dev` (after `vercel link`).
 
 ### Notes
 
 - **Cold starts:** first request after idle can be slower; normal for serverless.
-- **Redis `KEYS`:** session listing uses `KEYS` in Redis; fine for class-scale traffic. For huge scale, refactor to a Redis set of active session IDs.
-- **ngrok banned (ERR_NGROK_3208):** that’s ngrok’s account policy — use Vercel or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) (`cloudflared tunnel --url http://localhost:3000`) instead.
+- **Redis `KEYS`:** session listing uses `KEYS` in Redis; fine for class-scale traffic.
+- **ngrok banned (ERR_NGROK_3208):** use Vercel or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/).

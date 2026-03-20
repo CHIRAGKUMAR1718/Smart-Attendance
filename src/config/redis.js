@@ -1,7 +1,11 @@
 import "./env.js";
 import Redis from "ioredis";
 
-const url = process.env.REDIS_URL || "";
+/** Upstash / Vercel integrations may use different names; TCP URL must work with ioredis */
+const url =
+	process.env.REDIS_URL ||
+	process.env.UPSTASH_REDIS_URL ||
+	"";
 const isTls = url.startsWith("rediss://");
 
 const redis = new Redis(url, {
