@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() is built into PostgreSQL 13+ (Neon). No pgcrypto extension needed.
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
