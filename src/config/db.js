@@ -5,11 +5,28 @@ const { Pool } = pkg;
 const isVercel = process.env.VERCEL === "1";
 
 /**
- * Must be a real libpq URL for `pg`. Rejects Prisma Accelerate (`prisma+...`) and broken hosts like `base`
- * (happens when the wrong Vercel/Neon env var is picked or a URL is truncated).
+ * Normalize Neon/Vercel DB URLs: strip psql wrappers, extract postgres://, drop
+ * channel_binding=require (often breaks node-pg; sslmode=require is enough).
+ * parsePostgresHost() still rejects Prisma Accelerate and broken hosts.
  */
+function normalizePostgresUrl(raw) {
+  let s = String(raw || "")
+    .trim()
+    .replace(/\r/g, "");
+  const cli = s.match(/^\s*psql\s+['"](.+?)['"]\s*$/is);
+  if (cli) s = cli[1].trim();
+  if (!/^postgres(ql)?:\/\//i.test(s)) {
+    const m = s.match(/(postgres(ql)?:\/\/[^\s'"]+)/i);
+    if (m) s = m[1].trim();
+  }
+  s = s.replace(/&channel_binding=require(?=&|$)/gi, "");
+  s = s.replace(/\?channel_binding=require(?=&|$)/gi, "?");
+  s = s.replace(/\?$/g, "");
+  return s.trim();
+}
+
 function parsePostgresHost(connectionString) {
-  const t = String(connectionString || "").trim();
+  const t = normalizePostgresUrl(connectionString);
   if (!/^postgres(ql)?:\/\//i.test(t)) return null;
   if (/^prisma\+/i.test(t)) return null;
   const at = t.indexOf("@");
@@ -34,7 +51,8 @@ function pickPostgresUrl() {
   for (const key of keys) {
     const raw = process.env[key];
     if (!raw) continue;
-    if (parsePostgresHost(raw)) return String(raw).trim();
+    const normalized = normalizePostgresUrl(raw);
+    if (parsePostgresHost(normalized)) return normalized;
   }
   return "";
 }
