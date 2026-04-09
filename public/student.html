@@ -112,7 +112,12 @@
       border-color:var(--success);color:var(--success);
       background:rgba(16,185,129,.1);
     }
+    .detect-char.scanning{
+      border-color:var(--warn);color:var(--warn);
+      background:rgba(245,158,11,.08);animation:scanPulse 0.6s ease-in-out infinite;
+    }
     @keyframes charPop{0%{transform:scale(.8)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+    @keyframes scanPulse{0%,100%{opacity:.4}50%{opacity:1}}
 
     .listen-status{
       font-size:.8125rem;font-weight:600;color:var(--text-muted);
@@ -263,8 +268,9 @@
     <div class="card sonic-card">
       <div class="card-header">&#127925; Ultrasonic Signal Listener</div>
       <p style="font-size:.8125rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
-        Your device microphone will pick up the inaudible ultrasonic signal from your teacher's device.
-        Make sure you are in the classroom.
+        Your microphone picks up the inaudible ultrasonic signal (18-19 kHz) from your
+        teacher's device and decodes the embedded 6-digit session code. Attendance
+        is marked instantly once the code is confirmed.
       </p>
       <button class="btn-listen" id="listen-btn">&#127908; Start Listening</button>
       <div class="listen-viz hidden" id="listen-viz">
@@ -412,20 +418,24 @@ function logout() {
   show('auth-screen');
 }
 
-/* ── Mark attendance after chirp-range detection ── */
-async function submitBySignal(detectedFrequency) {
-  stopListening();
-  show('loading-screen');
+/* ── Mark attendance after FSK code decoding ── */
+async function submitByCode(decodedCode) {
   try {
-    const markRes = await api('/attendance/mark-by-signal', {
+    const markRes = await api('/attendance/mark-by-code', {
       method: 'POST',
-      body: JSON.stringify({ frequency: detectedFrequency }),
+      body: JSON.stringify({ code: decodedCode }),
     });
     const markData = await markRes.json();
     if (!markRes.ok) throw new Error(markData.message || 'Failed to mark');
 
-    showResult('success', 'Attendance Marked!', "You're checked in for the active class session.");
+    stopListening();
+    if (markData.marked === false) {
+      showResult('success', 'Already Marked', "You've already marked attendance for this session.");
+      return;
+    }
+    showResult('success', 'Attendance Marked!', `Session ${markData.code || decodedCode} — you're checked in.`);
   } catch (err) {
+    stopListening();
     const msg = err.message;
     if (msg.includes('Already marked') || msg.includes('409')) {
       showResult('success', 'Already Marked', "You've already marked attendance for this session.");
@@ -447,22 +457,18 @@ function showResult(type, title, sub) {
 document.getElementById('result-back').addEventListener('click', () => enterDashboard());
 
 /* ══════════════════════════════════════════════
-   ── Ultrasonic Signal Receiver ──
+   ── FSK Ultrasonic Signal Decoder ──
    ══════════════════════════════════════════════ */
-const US_CHIRP_MIN_FREQ = 18000;
-const US_CHIRP_MAX_FREQ = 20000;
+const FSK_CHARSET = '0123456789';
+const FSK_BASE_FREQ = 18100;
+const FSK_STEP = 30;
+const FSK_SYNC_FREQ = 19500;
+const FSK_FREQ_TOLERANCE = 12;
 const US_FFT = 8192;
-/** dBFS — lenient so real mics / speakers still trigger */
-const US_POWER_THRESH = -115;
+const US_POWER_THRESH = -85;
 const US_POLL_MS = 25;
-/** 1 = mark on first frame that sees energy in chirp band */
-const US_CONFIRM_FRAMES = 1;
-/** Minimum peak above local noise floor in the band (dB) */
-const US_MIN_PROMINENCE_DB = 1.5;
-/** If chirp peak is within this many dB of the loudest bin in 16–22 kHz, accept (spread chirp energy) */
-const US_NEAR_GLOBAL_MAX_DB = 6;
-/** Ignore near-global-max trick when whole ultrasonic band is effectively silent */
-const US_ULTRA_MIN_ABS_DB = -118;
+const US_MIN_PROMINENCE_DB = 6;
+const FSK_STABLE_MIN = 3;
 
 let usAudioCtx = null;
 let usAnalyser = null;
@@ -488,31 +494,21 @@ function usPeakInRange(data, binW, minF, maxF) {
   return { freq: bestBin * binW, power: best };
 }
 
-function usAvgInRange(data, binW, minF, maxF) {
+function usNoiseFloor(data, binW, minF, maxF) {
   const lo = Math.max(0, Math.floor(minF / binW));
   const hi = Math.min(data.length - 1, Math.ceil(maxF / binW));
-  let sum = 0;
-  let n = 0;
-  for (let i = lo; i <= hi; i++) {
-    const v = data[i];
-    if (Number.isFinite(v)) {
-      sum += v;
-      n++;
-    }
-  }
-  return n ? (sum / n) : -120;
+  let sum = 0, n = 0;
+  for (let i = lo; i <= hi; i++) { if (Number.isFinite(data[i])) { sum += data[i]; n++; } }
+  return n ? sum / n : -120;
 }
 
-/** Highest magnitude in FFT between minF and maxF Hz */
-function usMaxPowerInRange(data, binW, minF, maxF) {
-  const lo = Math.max(0, Math.floor(minF / binW));
-  const hi = Math.min(data.length - 1, Math.ceil(maxF / binW));
-  let best = -Infinity;
-  for (let i = lo; i <= hi; i++) {
-    const v = data[i];
-    if (Number.isFinite(v) && v > best) best = v;
+function classifyFreq(freq) {
+  if (Math.abs(freq - FSK_SYNC_FREQ) < 20) return { type: 'sync', char: null, idx: -1 };
+  const idx = Math.round((freq - FSK_BASE_FREQ) / FSK_STEP);
+  if (idx >= 0 && idx < FSK_CHARSET.length && Math.abs(freq - (FSK_BASE_FREQ + idx * FSK_STEP)) < FSK_FREQ_TOLERANCE) {
+    return { type: 'data', char: FSK_CHARSET[idx], idx };
   }
-  return best;
+  return { type: 'noise', char: null, idx: -1 };
 }
 
 function initFreqBars() {
@@ -520,8 +516,7 @@ function initFreqBars() {
   container.innerHTML = '';
   for (let i = 0; i < 28; i++) {
     const bar = document.createElement('div');
-    bar.className = 'freq-bar';
-    bar.style.height = '4px';
+    bar.className = 'freq-bar'; bar.style.height = '4px';
     container.appendChild(bar);
   }
 }
@@ -533,7 +528,6 @@ function updateFreqBars(data, binW) {
   const endBin = Math.ceil(20500 / binW);
   const totalBins = endBin - startBin;
   const binsPerBar = Math.max(1, Math.floor(totalBins / bars.length));
-
   bars.forEach((bar, i) => {
     let peak = -100;
     for (let b = 0; b < binsPerBar; b++) {
@@ -549,25 +543,30 @@ function updateFreqBars(data, binW) {
 function updateDetectChars(chars, state) {
   for (let i = 0; i < 6; i++) {
     const el = document.getElementById('dc-' + i);
-    if (i < chars.length) {
+    if (!el) continue;
+    if (state === 'scanning') {
+      el.textContent = '·'; el.className = 'detect-char scanning';
+    } else if (i < chars.length) {
       el.textContent = chars[i];
-      el.className = 'detect-char ' + (state === 'complete' ? 'complete' : 'filled');
+      el.className = state === 'complete' ? 'detect-char complete' : 'detect-char filled';
     } else {
-      el.textContent = '_';
-      el.className = 'detect-char';
+      el.textContent = '_'; el.className = 'detect-char';
     }
   }
-
   const status = document.getElementById('listen-status');
-  if (state === 'complete') {
+  if (!status) return;
+  const msgs = {
+    complete: 'Session code decoded — marking attendance!',
+    scanning: 'Sync detected — decoding session code...',
+    decoding: 'Decoding session code...',
+    receiving: 'Signal detected, waiting for sync...',
+  };
+  if (msgs[state]) {
     status.className = 'listen-status detected';
-    status.innerHTML = '<span class="dot"></span> Ultrasonic chirp detected. Marking attendance...';
-  } else if (state === 'receiving') {
-    status.className = 'listen-status detected';
-    status.innerHTML = '<span class="dot"></span> Chirp in range detected...';
+    status.innerHTML = '<span class="dot"></span> ' + msgs[state];
   } else {
     status.className = 'listen-status';
-    status.innerHTML = '<span class="dot"></span> Listening for ultrasonic chirp (18kHz-20kHz)...';
+    status.innerHTML = '<span class="dot"></span> Listening for ultrasonic signal (18-19 kHz)...';
   }
 }
 
@@ -582,17 +581,8 @@ function resetListenerUI() {
 }
 
 async function startListening() {
-  if (!window.isSecureContext) {
-    toast('Microphone requires HTTPS — use localhost or a secure origin', 'error');
-    resetListenerUI();
-    return;
-  }
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    toast('Microphone API not available in this browser', 'error');
-    resetListenerUI();
-    return;
-  }
+  if (!window.isSecureContext) { toast('Microphone requires HTTPS', 'error'); resetListenerUI(); return; }
+  if (!navigator.mediaDevices?.getUserMedia) { toast('Microphone API not available', 'error'); resetListenerUI(); return; }
 
   try {
     usAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -600,8 +590,8 @@ async function startListening() {
     usMicStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     });
-  } catch (err) {
-    toast('Microphone access denied — please allow microphone permission', 'error');
+  } catch {
+    toast('Microphone access denied', 'error');
     if (usAudioCtx) { usAudioCtx.close().catch(() => {}); usAudioCtx = null; }
     resetListenerUI();
     return;
@@ -618,18 +608,18 @@ async function startListening() {
 
   const debugEl = document.getElementById('us-debug');
   let lastDebugUpdate = 0;
-  if (debugEl) {
-    debugEl.classList.remove('hidden');
-    debugEl.textContent = 'Starting AudioContext...';
-  }
+  if (debugEl) { debugEl.classList.remove('hidden'); debugEl.textContent = 'Initializing...'; }
 
   const freqData = new Float32Array(usAnalyser.frequencyBinCount);
   const sr = usAudioCtx.sampleRate;
   const binW = sr / US_FFT;
-  let confirmFrames = 0;
+
   let submitted = false;
-  let lastDetectedFreq = null;
-  const detectSlots = Array.from({ length: 6 }, () => '•');
+  let prevClass = null;
+  let stableCount = 0;
+  let symbolBuffer = [];
+  let confirmedCode = null;
+  let confirmCount = 0;
 
   usListening = true;
 
@@ -637,51 +627,97 @@ async function startListening() {
     if (!usListening || submitted || !usAnalyser) return;
     usAnalyser.getFloatFrequencyData(freqData);
 
-    const dat = usPeakInRange(freqData, binW, US_CHIRP_MIN_FREQ, US_CHIRP_MAX_FREQ);
+    const peakData = usPeakInRange(freqData, binW, 18000, 20000);
+    const peakSync = usPeakInRange(freqData, binW, 19400, 19600);
+    const peak = peakSync.power > peakData.power ? peakSync : peakData;
+    const noise = usNoiseFloor(freqData, binW, 17000, 21000);
+    const prominence = peak.power - noise;
+    const strong = peak.power > US_POWER_THRESH && prominence >= US_MIN_PROMINENCE_DB;
     const now = Date.now();
-    const inChirpRange = dat.freq >= US_CHIRP_MIN_FREQ && dat.freq <= US_CHIRP_MAX_FREQ;
-    const noiseFloor = usAvgInRange(freqData, binW, US_CHIRP_MIN_FREQ - 900, US_CHIRP_MAX_FREQ + 900);
-    const prominence = dat.power - noiseFloor;
-    const ultraMax = usMaxPowerInRange(freqData, binW, 16000, 22000);
-    const nearLoudestUltrasonic =
-      Number.isFinite(ultraMax) &&
-      ultraMax > US_ULTRA_MIN_ABS_DB &&
-      dat.power >= ultraMax - US_NEAR_GLOBAL_MAX_DB;
-    const strongTone =
-      inChirpRange &&
-      Number.isFinite(dat.power) &&
-      (dat.power > US_POWER_THRESH ||
-        prominence >= US_MIN_PROMINENCE_DB ||
-        nearLoudestUltrasonic);
 
     updateFreqBars(freqData, binW);
 
     if (debugEl && now - lastDebugUpdate >= 200) {
       lastDebugUpdate = now;
-      const fmt = (v) => (Number.isFinite(v) ? v.toFixed(1) : String(v));
+      const f = v => Number.isFinite(v) ? v.toFixed(1) : String(v);
+      const cls = strong ? classifyFreq(peak.freq) : { type: 'weak' };
       debugEl.textContent =
-        'sr=' + fmt(sr) + 'Hz binW=' + fmt(binW) + 'Hz\n' +
-        'chirpRange=' + US_CHIRP_MIN_FREQ + '-' + US_CHIRP_MAX_FREQ + 'Hz\n' +
-        'dat=' + fmt(dat.freq) + 'Hz p=' + fmt(dat.power) + 'dB\n' +
-        'noise=' + fmt(noiseFloor) + 'dB prominence=' + fmt(prominence) + 'dB ultraMax=' + fmt(ultraMax) + 'dB\n' +
-        'match=' + (strongTone ? 'yes' : 'no') + ' (abs>' + US_POWER_THRESH + ' OR prom>=' + US_MIN_PROMINENCE_DB + ' OR nearMax)\n' +
-        'confirmFrames=' + confirmFrames + '/' + US_CONFIRM_FRAMES;
+        `sr=${f(sr)} binW=${f(binW)} peak=${f(peak.freq)}Hz ${f(peak.power)}dB\n` +
+        `noise=${f(noise)}dB prom=${f(prominence)}dB → ${cls.type}${cls.char ? '(' + cls.char + ')' : ''}\n` +
+        `stable=${stableCount}/${FSK_STABLE_MIN} buf=[${symbolBuffer.map(s => s.type === 'sync' ? '▼' : s.char).join('')}]\n` +
+        `confirmed=${confirmedCode || '---'} ×${confirmCount}`;
     }
 
-    if (strongTone) {
-      confirmFrames = Math.min(US_CONFIRM_FRAMES, confirmFrames + 1);
-      lastDetectedFreq = dat.freq;
+    if (!strong) {
+      if (stableCount >= FSK_STABLE_MIN && prevClass && prevClass.type !== 'noise') {
+        symbolBuffer.push(prevClass);
+        if (symbolBuffer.length > 12) symbolBuffer.shift();
+        checkForCode();
+      }
+      prevClass = null; stableCount = 0;
+      return;
+    }
+
+    const cls = classifyFreq(peak.freq);
+    if (cls.type === 'noise') {
+      if (stableCount >= FSK_STABLE_MIN && prevClass && prevClass.type !== 'noise') {
+        symbolBuffer.push(prevClass);
+        if (symbolBuffer.length > 12) symbolBuffer.shift();
+        checkForCode();
+      }
+      prevClass = null; stableCount = 0;
+      return;
+    }
+
+    const same = prevClass && cls.type === prevClass.type && (cls.type !== 'data' || cls.idx === prevClass.idx);
+    if (same) {
+      stableCount++;
     } else {
-      confirmFrames = Math.max(0, confirmFrames - 1);
+      if (stableCount >= FSK_STABLE_MIN && prevClass && prevClass.type !== 'noise') {
+        symbolBuffer.push(prevClass);
+        if (symbolBuffer.length > 12) symbolBuffer.shift();
+        checkForCode();
+      }
+      prevClass = cls;
+      stableCount = 1;
     }
 
-    const filled = Math.min(detectSlots.length, confirmFrames);
-    updateDetectChars(detectSlots.slice(0, filled), confirmFrames >= US_CONFIRM_FRAMES ? 'complete' : (filled > 0 ? 'receiving' : 'idle'));
+    const uiChars = [];
+    let foundSync = -1;
+    for (let j = symbolBuffer.length - 1; j >= 0; j--) {
+      if (symbolBuffer[j].type === 'sync') { foundSync = j; break; }
+    }
+    if (foundSync >= 0) {
+      for (let j = foundSync + 1; j < symbolBuffer.length; j++) {
+        if (symbolBuffer[j].type === 'data') uiChars.push(symbolBuffer[j].char);
+      }
+      if (stableCount >= FSK_STABLE_MIN && cls.type === 'data') uiChars.push(cls.char);
+    }
+    const uiState = uiChars.length >= 6 ? 'complete' : uiChars.length > 0 ? 'decoding' : (foundSync >= 0 ? 'scanning' : 'idle');
+    updateDetectChars(uiChars, submitted ? 'complete' : uiState);
 
-    if (confirmFrames >= US_CONFIRM_FRAMES) {
-      submitted = true;
-      toast('Ultrasonic chirp detected');
-      setTimeout(() => submitBySignal(lastDetectedFreq), 0);
+    function checkForCode() {
+      for (let s = symbolBuffer.length - 1; s >= 0; s--) {
+        if (symbolBuffer[s].type !== 'sync') continue;
+        const dataAfter = symbolBuffer.slice(s + 1).filter(x => x.type === 'data');
+        if (dataAfter.length >= 6) {
+          const decoded = dataAfter.slice(0, 6).map(x => x.char).join('');
+          if (confirmedCode === decoded) {
+            confirmCount++;
+          } else {
+            confirmedCode = decoded;
+            confirmCount = 1;
+          }
+          symbolBuffer = [];
+          if (confirmCount >= 1 && !submitted) {
+            submitted = true;
+            updateDetectChars(decoded.split(''), 'complete');
+            toast('Code decoded: ' + decoded + ' — marking attendance...');
+            setTimeout(() => submitByCode(decoded), 400);
+          }
+          return;
+        }
+      }
     }
   }, US_POLL_MS);
 }

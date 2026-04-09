@@ -334,12 +334,10 @@
           <button type="button" class="dur-btn" data-dur="1800">30 min</button>
         </div>
         <div class="form-group">
-          <label class="form-label">Ultrasonic Chirp Band</label>
-          <select class="form-input" id="chirp-band">
-            <option value="18000-20000">18.0 kHz - 20.0 kHz (default)</option>
-            <option value="18100-19600">18.1 kHz - 19.6 kHz</option>
-            <option value="18500-20000">18.5 kHz - 20.0 kHz</option>
-          </select>
+          <label class="form-label">Signal Band</label>
+          <div style="font-size:.8125rem;color:var(--text-muted);padding:.5rem 0">
+            FSK encoding &bull; 6-digit numeric code &bull; 18.1 – 19.0 kHz data &bull; 19.5 kHz sync
+          </div>
         </div>
         <button type="submit" class="btn btn-primary" id="start-btn">Start Broadcasting</button>
       </form>
@@ -405,8 +403,6 @@ let currentSession = null;
 let timerInterval = null;
 let pollInterval = null;
 let selectedDuration = 300;
-let selectedChirpMinFreq = 18000;
-let selectedChirpMaxFreq = 20000;
 
 /* ── Helpers ── */
 async function api(path, opts = {}) {
@@ -517,14 +513,6 @@ document.querySelectorAll('.dur-btn').forEach(btn => {
   });
 });
 
-document.getElementById('chirp-band').addEventListener('change', (e) => {
-  const [minF, maxF] = String(e.target.value || '').split('-').map(Number);
-  if (Number.isFinite(minF) && Number.isFinite(maxF) && minF < maxF) {
-    selectedChirpMinFreq = minF;
-    selectedChirpMaxFreq = maxF;
-  }
-});
-
 /* Start session */
 document.getElementById('session-form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -534,23 +522,11 @@ document.getElementById('session-form').addEventListener('submit', async e => {
     const classId = document.getElementById('class-id').value.trim();
     const res = await api('/sessions/start', {
       method: 'POST',
-      body: JSON.stringify({
-        classId,
-        duration: selectedDuration,
-        chirpMinFreq: selectedChirpMinFreq,
-        chirpMaxFreq: selectedChirpMaxFreq,
-      }),
+      body: JSON.stringify({ classId, duration: selectedDuration }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed');
-    openSignal({
-      sessionId: data.sessionId,
-      code: data.code,
-      classId,
-      expiresIn: data.expiresIn,
-      chirpMinFreq: data.chirpMinFreq ?? selectedChirpMinFreq,
-      chirpMaxFreq: data.chirpMaxFreq ?? selectedChirpMaxFreq,
-    });
+    openSignal({ sessionId: data.sessionId, code: data.code, classId, expiresIn: data.expiresIn });
     toast('Session started — broadcasting!');
   } catch (err) { toast(err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Start Broadcasting'; }
@@ -564,7 +540,7 @@ async function loadSessions() {
     const el = document.getElementById('sessions-list');
     if (!sessions.length) { el.innerHTML = '<div class="empty">No active sessions</div>'; return; }
     el.innerHTML = sessions.map(s => `
-      <div class="session-item" data-id="${s.sessionId}" data-code="${s.code}" data-class="${s.classId}" data-ttl="${s.remainingSeconds}" data-chirp-min="${s.chirpMinFreq || 18000}" data-chirp-max="${s.chirpMaxFreq || 20000}">
+      <div class="session-item" data-id="${s.sessionId}" data-code="${s.code}" data-class="${s.classId}" data-ttl="${s.remainingSeconds}">
         <div class="si-left">
           <span class="si-class">${s.classId}</span>
           <span class="si-code">${s.code}</span>
@@ -577,8 +553,6 @@ async function loadSessions() {
         openSignal({
           sessionId: item.dataset.id, code: item.dataset.code,
           classId: item.dataset.class, expiresIn: Number(item.dataset.ttl),
-          chirpMinFreq: Number(item.dataset.chirpMin),
-          chirpMaxFreq: Number(item.dataset.chirpMax),
         });
       });
     });
@@ -695,17 +669,11 @@ function quickSearch(classId) {
 }
 
 /* ── Signal Broadcasting ── */
-function openSignal({ sessionId, code, classId, expiresIn, chirpMinFreq, chirpMaxFreq }) {
-  currentSession = {
-    sessionId,
-    code,
-    classId,
-    chirpMinFreq: Number.isFinite(Number(chirpMinFreq)) ? Number(chirpMinFreq) : US_CHIRP_MIN_FREQ,
-    chirpMaxFreq: Number.isFinite(Number(chirpMaxFreq)) ? Number(chirpMaxFreq) : US_CHIRP_MAX_FREQ,
-  };
+function openSignal({ sessionId, code, classId, expiresIn }) {
+  currentSession = { sessionId, code, classId };
   show('signal-screen');
 
-  document.getElementById('sig-code').textContent = `${currentSession.chirpMinFreq}-${currentSession.chirpMaxFreq} Hz`;
+  document.getElementById('sig-code').textContent = currentSession.code;
   document.getElementById('sig-class').textContent = classId;
   document.getElementById('sig-count-num').textContent = '0';
   document.getElementById('student-list').innerHTML = '';
@@ -763,10 +731,13 @@ function goBackDash() {
   enterDashboard();
 }
 
-/* ── Ultrasonic Broadcasting ── */
-const US_CHIRP_MIN_FREQ = 18000;
-const US_CHIRP_MAX_FREQ = 20000;
-const US_CHIRP_SWEEP_SEC = 1.2;
+/* ── FSK Ultrasonic Broadcasting ── */
+const FSK_CHARSET = '0123456789';
+const FSK_BASE_FREQ = 18100;
+const FSK_STEP = 30;
+const FSK_SYNC_FREQ = 19500;
+const FSK_SYMBOL_MS = 250;
+const FSK_GAP_MS = 350;
 const US_LEVEL = 0.95;
 
 let usAudioCtx = null;
@@ -777,37 +748,54 @@ let usChirpTimer = null;
 
 function startBroadcasting() {
   if (usActive) stopBroadcasting();
-  const minFreq = currentSession?.chirpMinFreq ?? US_CHIRP_MIN_FREQ;
-  const maxFreq = currentSession?.chirpMaxFreq ?? US_CHIRP_MAX_FREQ;
+  const code = currentSession?.code;
+  if (!code) return;
+
   usAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   usOsc = usAudioCtx.createOscillator();
   usGain = usAudioCtx.createGain();
   usOsc.type = 'sine';
-  usOsc.frequency.value = minFreq;
-  usGain.gain.setValueAtTime(0.0001, usAudioCtx.currentTime);
-  usGain.gain.linearRampToValueAtTime(US_LEVEL, usAudioCtx.currentTime + 0.05);
+  usOsc.frequency.value = FSK_SYNC_FREQ;
+  usGain.gain.value = 0.0001;
   usOsc.connect(usGain);
   usGain.connect(usAudioCtx.destination);
   usOsc.start();
-  const startAt = usAudioCtx.currentTime + 0.02;
-  usOsc.frequency.setValueAtTime(minFreq, startAt);
-  usOsc.frequency.linearRampToValueAtTime(maxFreq, startAt + US_CHIRP_SWEEP_SEC);
+
+  const symSec = FSK_SYMBOL_MS / 1000;
+  const gapSec = FSK_GAP_MS / 1000;
+
+  function scheduleCycle(t0) {
+    usOsc.frequency.setValueAtTime(FSK_SYNC_FREQ, t0);
+    usGain.gain.setValueAtTime(US_LEVEL, t0);
+    let t = t0 + symSec;
+
+    for (let i = 0; i < code.length; i++) {
+      const ci = FSK_CHARSET.indexOf(code[i]);
+      const freq = ci >= 0 ? FSK_BASE_FREQ + ci * FSK_STEP : FSK_BASE_FREQ;
+      usOsc.frequency.setValueAtTime(freq, t);
+      t += symSec;
+    }
+
+    usGain.gain.setValueAtTime(0.0001, t);
+    t += gapSec;
+    return t;
+  }
+
+  let nextStart = usAudioCtx.currentTime + 0.05;
+  for (let i = 0; i < 5; i++) nextStart = scheduleCycle(nextStart);
+
   usChirpTimer = setInterval(() => {
     if (!usAudioCtx || !usOsc) return;
-    const t = usAudioCtx.currentTime + 0.02;
-    usOsc.frequency.cancelScheduledValues(t);
-    usOsc.frequency.setValueAtTime(minFreq, t);
-    usOsc.frequency.linearRampToValueAtTime(maxFreq, t + US_CHIRP_SWEEP_SEC);
-  }, Math.max(250, Math.floor(US_CHIRP_SWEEP_SEC * 1000)));
+    const now = usAudioCtx.currentTime;
+    while (nextStart < now + 6) nextStart = scheduleCycle(nextStart);
+  }, 2000);
+
   usActive = true;
 }
 
 function stopBroadcasting() {
   usActive = false;
-  if (usChirpTimer) {
-    clearInterval(usChirpTimer);
-    usChirpTimer = null;
-  }
+  if (usChirpTimer) { clearInterval(usChirpTimer); usChirpTimer = null; }
   if (usGain && usAudioCtx) {
     const t = usAudioCtx.currentTime;
     usGain.gain.cancelScheduledValues(t);
@@ -816,13 +804,9 @@ function stopBroadcasting() {
   }
   if (usOsc) {
     try { usOsc.stop(usAudioCtx.currentTime + 0.06); } catch (_) {}
-    usOsc.disconnect();
-    usOsc = null;
+    usOsc.disconnect(); usOsc = null;
   }
-  if (usGain) {
-    usGain.disconnect();
-    usGain = null;
-  }
+  if (usGain) { usGain.disconnect(); usGain = null; }
   if (usAudioCtx) { usAudioCtx.close().catch(() => {}); usAudioCtx = null; }
 }
 

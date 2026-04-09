@@ -4,6 +4,7 @@ import { db } from "../config/db.js";
 
 export const DEFAULT_CHIRP_MIN_FREQ = 18000;
 export const DEFAULT_CHIRP_MAX_FREQ = 20000;
+const SESSION_CODE_REGEX = /^\d{6}$/;
 
 const fail = (status, message) => {
   const err = new Error(message);
@@ -32,10 +33,15 @@ const ensureTable = async () => {
 };
 
 const generateCode = () => {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let code = "";
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) code += Math.floor(Math.random() * 10);
   return code;
+};
+
+export const normalizeSessionCode = (code) => {
+  const normalized = String(code ?? "").trim();
+  if (!SESSION_CODE_REGEX.test(normalized)) fail(400, "Code must be exactly 6 digits");
+  return normalized;
 };
 
 export const createSession = async ({ classId, duration, teacherId, chirpMinFreq, chirpMaxFreq }) => {
@@ -77,8 +83,8 @@ export const createSession = async ({ classId, duration, teacherId, chirpMinFreq
 };
 
 export const getSessionByCode = async (code) => {
-  if (!code) fail(400, "Code is required");
-  const sessionId = await redis.get(`chirp:code:${String(code).toUpperCase().trim()}`);
+  const normalizedCode = normalizeSessionCode(code);
+  const sessionId = await redis.get(`chirp:code:${normalizedCode}`);
   if (!sessionId) fail(404, "Invalid or expired code");
   const raw = await redis.get(`chirp:session:${sessionId}`);
   if (!raw) fail(404, "Session expired");
