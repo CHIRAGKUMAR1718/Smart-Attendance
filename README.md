@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # SMAT Attendance
 
 Express + Postgres + Redis backend for starting attendance sessions and letting students check in.
@@ -85,4 +85,3 @@ Optional local prod-like run: `npx vercel dev` (after `vercel link`).
 - **ngrok banned (ERR_NGROK_3208):** use Vercel or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/).
 =======
 # Smart-Attendance
->>>>>>> 7727c721ce97e50718ddc522b252f71cf80b64b6
