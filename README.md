@@ -84,4 +84,3 @@ Optional local prod-like run: `npx vercel dev` (after `vercel link`).
 - **Redis `KEYS`:** session listing uses `KEYS` in Redis; fine for class-scale traffic.
 - **ngrok banned (ERR_NGROK_3208):** use Vercel or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/).
 =======
-# Smart-Attendance
